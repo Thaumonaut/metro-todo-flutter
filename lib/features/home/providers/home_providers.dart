@@ -1,0 +1,126 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../data/providers/repository_providers.dart';
+import '../../../data/models/todo_task.dart';
+import '../../../data/models/task_tag.dart';
+
+/// Stream provider for tasks due today
+final todayTasksProvider = StreamProvider<List<TodoTask>>((ref) {
+  final repository = ref.watch(todoRepositoryProvider);
+  return repository.watchAllTodos().map((todos) {
+    return todos.where((todo) => todo.isDueToday && !todo.isCompleted).toList()
+      ..sort((a, b) => b.importance.value.compareTo(a.importance.value));
+  });
+});
+
+/// Stream provider for all incomplete tasks
+final allTasksProvider = StreamProvider<List<TodoTask>>((ref) {
+  final repository = ref.watch(todoRepositoryProvider);
+  return repository.watchAllTodos().map((todos) {
+    return todos.where((todo) => !todo.isCompleted).toList()
+      ..sort((a, b) {
+        // Sort by due date first (overdue first, then by date), then by importance
+        if (a.isOverdue != b.isOverdue) {
+          return a.isOverdue ? -1 : 1;
+        }
+        if (a.dueDate != null && b.dueDate != null) {
+          final dateCompare = a.dueDate!.compareTo(b.dueDate!);
+          if (dateCompare != 0) return dateCompare;
+        }
+        if (a.dueDate != null && b.dueDate == null) return -1;
+        if (a.dueDate == null && b.dueDate != null) return 1;
+        return b.importance.value.compareTo(a.importance.value);
+      });
+  });
+});
+
+/// Stream provider for urgent/high priority incomplete tasks
+final urgentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
+  final repository = ref.watch(todoRepositoryProvider);
+  return repository.watchAllTodos().map((todos) {
+    return todos.where((todo) =>
+      !todo.isCompleted && todo.importance.value >= 2 // High or Critical
+    ).toList()
+      ..sort((a, b) => b.importance.value.compareTo(a.importance.value));
+  });
+});
+
+/// Stream provider for recently created tasks
+final recentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
+  final repository = ref.watch(todoRepositoryProvider);
+  return repository.watchAllTodos().map((todos) {
+    final sortedTodos = List<TodoTask>.from(todos)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sortedTodos.take(10).toList();
+  });
+});
+
+/// Provider for weekly statistics
+final weeklyStatsProvider = FutureProvider<WeeklyStats>((ref) async {
+  final repository = ref.watch(todoRepositoryProvider);
+
+  final now = DateTime.now();
+  final weekStart = now.subtract(Duration(days: now.weekday - 1));
+  final weekStartDate = DateTime(weekStart.year, weekStart.month, weekStart.day);
+
+  final allTodos = await repository.getAllTodos();
+
+  // Count tasks created this week
+  final createdThisWeek = allTodos.where((todo) =>
+    todo.createdAt.isAfter(weekStartDate)
+  ).length;
+
+  // Count tasks completed this week
+  final completedThisWeek = allTodos.where((todo) =>
+    todo.completedAt != null && todo.completedAt!.isAfter(weekStartDate)
+  ).length;
+
+  // Count tasks due this week
+  final dueThisWeek = allTodos.where((todo) {
+    if (todo.dueDate == null) return false;
+    final dueDate = DateTime(todo.dueDate!.year, todo.dueDate!.month, todo.dueDate!.day);
+    final weekEnd = weekStartDate.add(const Duration(days: 7));
+    return dueDate.isAfter(weekStartDate.subtract(const Duration(days: 1))) &&
+           dueDate.isBefore(weekEnd);
+  }).length;
+
+  return WeeklyStats(
+    createdCount: createdThisWeek,
+    completedCount: completedThisWeek,
+    dueCount: dueThisWeek,
+  );
+});
+
+/// Provider for tag statistics (most used tags)
+final topTagsProvider = FutureProvider<List<TagStats>>((ref) async {
+  final tagRepository = ref.watch(tagRepositoryProvider);
+  final tags = await tagRepository.getTagsSortedByUsage();
+
+  return tags.take(5).map((tag) => TagStats(
+    tag: tag,
+    taskCount: tag.tasks.length,
+  )).toList();
+});
+
+/// Data class for weekly statistics
+class WeeklyStats {
+  final int createdCount;
+  final int completedCount;
+  final int dueCount;
+
+  WeeklyStats({
+    required this.createdCount,
+    required this.completedCount,
+    required this.dueCount,
+  });
+}
+
+/// Data class for tag statistics
+class TagStats {
+  final TaskTag tag;
+  final int taskCount;
+
+  TagStats({
+    required this.tag,
+    required this.taskCount,
+  });
+}
