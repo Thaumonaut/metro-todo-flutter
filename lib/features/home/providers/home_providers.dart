@@ -33,7 +33,7 @@ final allTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   });
 });
 
-/// Stream provider for urgent/high priority incomplete tasks
+/// Stream provider for urgent/high priority incomplete tasks (kept for compatibility)
 final urgentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
@@ -44,6 +44,33 @@ final urgentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   });
 });
 
+/// Stream provider for recurring templates (for home recurring section)
+final homeRecurringTemplatesProvider = StreamProvider<List<TodoTask>>((ref) {
+  final repository = ref.watch(todoRepositoryProvider);
+  return repository.watchRecurringTemplates();
+});
+
+/// Stream provider for upcoming recurring instances (next 14 days)
+final homeRecurringInstancesProvider = StreamProvider<List<TodoTask>>((ref) {
+  final repository = ref.watch(todoRepositoryProvider);
+  return repository.watchAllTodos().map((todos) {
+    final now = DateTime.now();
+    final twoWeeksLater = now.add(const Duration(days: 14));
+
+    return todos
+        .where((t) =>
+            t.isRecurring &&
+            !t.isRecurringTemplate &&
+            !t.isCompleted &&
+            !t.isSkipped &&
+            t.dueDate != null &&
+            t.dueDate!.isAfter(now.subtract(const Duration(days: 1))) &&
+            t.dueDate!.isBefore(twoWeeksLater))
+        .toList()
+      ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
+  });
+});
+
 /// Stream provider for recently created tasks
 final recentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
@@ -51,6 +78,15 @@ final recentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
     final sortedTodos = List<TodoTask>.from(todos)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return sortedTodos.take(10).toList();
+  });
+});
+
+/// Stream provider for completed tasks
+final completedTasksProvider = StreamProvider<List<TodoTask>>((ref) {
+  final repository = ref.watch(todoRepositoryProvider);
+  return repository.watchAllTodos().map((todos) {
+    return todos.where((todo) => todo.isCompleted).toList()
+      ..sort((a, b) => (b.completedAt ?? b.createdAt).compareTo(a.completedAt ?? a.createdAt));
   });
 });
 

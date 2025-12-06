@@ -4,6 +4,7 @@ import 'package:todo_project/features/tasks/presentation/pages/search_page.dart'
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
+import '../../../../data/models/importance_level.dart';
 import '../../../../data/providers/repository_providers.dart';
 import '../../providers/home_providers.dart';
 import '../controllers/home_controller.dart';
@@ -17,6 +18,7 @@ import '../../../tasks/presentation/pages/task_form_page.dart';
 import '../../../tasks/presentation/pages/task_detail_page.dart';
 import '../../../tasks/providers/task_providers.dart';
 import '../../../tags/presentation/pages/tags_page.dart';
+import '../../../recurring/presentation/pages/recurring_section.dart';
 
 /// Main home page with true panoramic Metro-style horizontal scrolling
 /// Each section is a full-width panel that you swipe between
@@ -55,7 +57,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final statsAsync = ref.watch(todoStatsProvider);
     final allTasksAsync = ref.watch(allTasksProvider);
-    final urgentTasksAsync = ref.watch(urgentTasksProvider);
+    final completedTasksAsync = ref.watch(completedTasksProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -83,7 +85,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                     onNewTaskTap: () => _navigateToTaskForm(),
                     onDueTodayTap: () => _showTodayTasksSheet(),
                     onMoreTap: () => _showQuickActionsMenu(),
-                    onTaskTap: (task) => _navigateToTaskDetail(task.id),
+                    onTaskEdit: (task) => _navigateToTaskDetail(task.id),
+                    onTaskComplete: (task) => _completeTask(task),
+                    onTaskDelete: (task) => _deleteTask(task),
+                    onTaskImportanceChange: (task, importance) => _updateTaskImportance(task, importance),
                   ),
 
                   // Section 2: All Tasks
@@ -93,24 +98,30 @@ class _HomePageState extends ConsumerState<HomePage> {
                     width: screenWidth,
                     emptyStateIcon: Icons.check_circle_outline,
                     emptyStateMessage: 'No tasks yet',
-                    onTaskTap: (task) => _navigateToTaskDetail(task.id),
+                    onTaskEdit: (task) => _navigateToTaskDetail(task.id),
                     onTaskComplete: (task) => _completeTask(task),
                     onTaskDelete: (task) => _deleteTask(task),
+                    onTaskImportanceChange: (task, importance) => _updateTaskImportance(task, importance),
                   ),
 
-                  // Section 3: Urgent Tasks
-                  TaskListSection(
-                    title: 'Urgent',
-                    tasksAsync: urgentTasksAsync,
+                  // Section 3: Recurring Tasks
+                  RecurringSection(
                     width: screenWidth,
-                    emptyStateIcon: Icons.priority_high,
-                    emptyStateMessage: 'No urgent tasks',
-                    onTaskTap: (task) => _navigateToTaskDetail(task.id),
-                    onTaskComplete: (task) => _completeTask(task),
-                    onTaskDelete: (task) => _deleteTask(task),
                   ),
 
-                  // Section 4: Settings
+                  // Section 4: Completed Tasks
+                  TaskListSection(
+                    title: 'Completed',
+                    tasksAsync: completedTasksAsync,
+                    width: screenWidth,
+                    emptyStateIcon: Icons.check_circle,
+                    emptyStateMessage: 'No completed tasks yet',
+                    onTaskEdit: (task) => _navigateToTaskDetail(task.id),
+                    onTaskDelete: (task) => _deleteTask(task),
+                    onTaskImportanceChange: (task, importance) => _updateTaskImportance(task, importance),
+                  ),
+
+                  // Section 5: Settings
                   const SettingsSection(),
                 ],
               ),
@@ -142,32 +153,41 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SizedBox(height: 8),
 
           // Page indicators
-          Row(
-            children: [
-              PageIndicator(
-                label: 'overview',
-                isActive: _currentPage == 0,
-                onTap: () => _controller.navigateToPage(0),
-              ),
-              const SizedBox(width: 12),
-              PageIndicator(
-                label: 'all',
-                isActive: _currentPage == 1,
-                onTap: () => _controller.navigateToPage(1),
-              ),
-              const SizedBox(width: 12),
-              PageIndicator(
-                label: 'urgent',
-                isActive: _currentPage == 2,
-                onTap: () => _controller.navigateToPage(2),
-              ),
-              const SizedBox(width: 12),
-              PageIndicator(
-                label: 'settings',
-                isActive: _currentPage == 3,
-                onTap: () => _controller.navigateToPage(3),
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                PageIndicator(
+                  label: 'overview',
+                  isActive: _currentPage == 0,
+                  onTap: () => _controller.navigateToPage(0),
+                ),
+                const SizedBox(width: 12),
+                PageIndicator(
+                  label: 'all',
+                  isActive: _currentPage == 1,
+                  onTap: () => _controller.navigateToPage(1),
+                ),
+                const SizedBox(width: 12),
+                PageIndicator(
+                  label: 'recurring',
+                  isActive: _currentPage == 2,
+                  onTap: () => _controller.navigateToPage(2),
+                ),
+                const SizedBox(width: 12),
+                PageIndicator(
+                  label: 'done',
+                  isActive: _currentPage == 3,
+                  onTap: () => _controller.navigateToPage(3),
+                ),
+                const SizedBox(width: 12),
+                PageIndicator(
+                  label: 'settings',
+                  isActive: _currentPage == 4,
+                  onTap: () => _controller.navigateToPage(4),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -307,13 +327,40 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _showQuickActionsMenu() {
     QuickActionsMenu.show(
       context,
-      onUrgentTap: () => _controller.navigateToPage(2),
+      onUrgentTap: () => _controller.navigateToPage(2), // Now navigates to Recurring
       onTagsTap: () => _navigateToTagsPage(),
       onSearchTap: () {
         _navigateToSearchPage();
-        
       },
-      onSettingsTap: () => _controller.navigateToPage(3),
+      onSettingsTap: () => _controller.navigateToPage(4),
     );
+  }
+
+  /// Update a task's importance level
+  Future<void> _updateTaskImportance(TodoTask task, ImportanceLevel importance) async {
+    try {
+      task.importance = importance;
+      final updateTask = ref.read(updateTaskProvider);
+      await updateTask(task);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Priority updated to ${importance.label}'),
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating priority: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }

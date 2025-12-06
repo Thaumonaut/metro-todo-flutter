@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../../../data/models/task_tag.dart';
 import '../../../../data/models/importance_level.dart';
 import '../../../../data/models/task_status.dart';
+import '../../../../data/models/recurring_pattern.dart';
 import '../../../../shared/widgets/metro_button.dart';
 import '../../providers/task_providers.dart';
+import '../../../recurring/providers/recurring_providers.dart';
 import '../widgets/importance_selector.dart';
 import '../widgets/date_picker_field.dart';
 import '../widgets/tag_selector.dart';
+import '../../../recurring/presentation/widgets/recurrence_pattern_selector.dart';
 
 /// Page for creating or editing a task
 class TaskFormPage extends ConsumerStatefulWidget {
@@ -37,7 +41,12 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   List<TaskTag> _selectedTags = [];
   bool _isLoading = false;
 
+  // Recurrence fields
+  bool _isRecurring = false;
+  RecurringPattern? _recurrencePattern;
+
   bool get isEditMode => widget.task != null;
+  bool get isEditingRecurringTemplate => isEditMode && widget.task!.isRecurringTemplate;
 
   @override
   void initState() {
@@ -56,10 +65,25 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       _selectedDueDate = task.dueDate;
       // Tags will be loaded from the task.tags relationship
       _selectedTags = task.tags.toList();
+      // Recurrence settings
+      _isRecurring = task.isRecurring;
+      if (task.recurringPatternId != null) {
+        _loadPattern(task.recurringPatternId!);
+      }
     } else {
       // Creating new task - set defaults
       _selectedImportance = ImportanceLevel.medium;
       _selectedStatus = TaskStatus.notStarted;
+    }
+  }
+
+  Future<void> _loadPattern(int patternId) async {
+    final patternRepo = ref.read(recurringPatternRepositoryProvider);
+    final pattern = await patternRepo.getPattern(patternId);
+    if (pattern != null && mounted) {
+      setState(() {
+        _recurrencePattern = pattern;
+      });
     }
   }
 
@@ -212,7 +236,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
 
             // Due date picker
             DatePickerField(
-              label: 'Due Date',
+              label: _isRecurring ? 'Start Date' : 'Due Date',
               selectedDate: _selectedDueDate,
               onDateSelected: (date) {
                 setState(() {
@@ -222,6 +246,24 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
               firstDate: DateTime.now(),
             ),
             const SizedBox(height: 24),
+
+            // Recurrence pattern selector (not shown when editing recurring instance)
+            if (!isEditMode || isEditingRecurringTemplate) ...[
+              Divider(color: AppColors.glassBorder),
+              const SizedBox(height: 16),
+              RecurrencePatternSelector(
+                isRecurring: _isRecurring,
+                pattern: _recurrencePattern,
+                startDate: _selectedDueDate,
+                onChanged: (isRecurring, pattern) {
+                  setState(() {
+                    _isRecurring = isRecurring;
+                    _recurrencePattern = pattern;
+                  });
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
 
             // Tag selector
             TagSelector(
@@ -399,26 +441,73 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
         }
       } else {
         // Create new task
-        final createTask = ref.read(createTaskProvider);
-        await createTask(
-          title: _titleController.text.trim(),
-          description: _descriptionController.text.trim().isEmpty
-              ? null
-              : _descriptionController.text.trim(),
-          importance: _selectedImportance,
-          status: _selectedStatus,
-          dueDate: _selectedDueDate,
-          tags: _selectedTags,
-        );
+        if (_isRecurring && _recurrencePattern != null) {
+          // Create recurring task
+          if (_selectedDueDate == null) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please select a start date for the recurring task'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Task created successfully'),
-              backgroundColor: AppColors.primary,
-            ),
+          final template = TodoTask()
+            ..uuid = const Uuid().v4()
+            ..title = _titleController.text.trim()
+            ..description = _descriptionController.text.trim().isEmpty
+                ? null
+                : _descriptionController.text.trim()
+            ..importance = _selectedImportance
+            ..status = _selectedStatus
+            ..dueDate = _selectedDueDate
+            ..createdAt = DateTime.now()
+            ..isCompleted = false
+            ..isRecurring = true
+            ..isRecurringTemplate = true
+            ..isRecurringException = false
+            ..isSkipped = false;
+
+          template.updateComputedProperties();
+
+          final createRecurring = ref.read(createRecurringTaskProvider);
+          await createRecurring(template: template, pattern: _recurrencePattern!);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Recurring task created successfully'),
+                backgroundColor: AppColors.primary,
+              ),
+            );
+            Navigator.pop(context, true);
+          }
+        } else {
+          // Create regular task
+          final createTask = ref.read(createTaskProvider);
+          await createTask(
+            title: _titleController.text.trim(),
+            description: _descriptionController.text.trim().isEmpty
+                ? null
+                : _descriptionController.text.trim(),
+            importance: _selectedImportance,
+            status: _selectedStatus,
+            dueDate: _selectedDueDate,
+            tags: _selectedTags,
           );
-          Navigator.pop(context, true);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Task created successfully'),
+                backgroundColor: AppColors.primary,
+              ),
+            );
+            Navigator.pop(context, true);
+          }
         }
       }
     } catch (e) {

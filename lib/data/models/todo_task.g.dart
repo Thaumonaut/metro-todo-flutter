@@ -63,19 +63,59 @@ const TodoTaskSchema = CollectionSchema(
       name: r'isOverdue',
       type: IsarType.bool,
     ),
-    r'status': PropertySchema(
+    r'isRecurring': PropertySchema(
       id: 9,
+      name: r'isRecurring',
+      type: IsarType.bool,
+    ),
+    r'isRecurringException': PropertySchema(
+      id: 10,
+      name: r'isRecurringException',
+      type: IsarType.bool,
+    ),
+    r'isRecurringTemplate': PropertySchema(
+      id: 11,
+      name: r'isRecurringTemplate',
+      type: IsarType.bool,
+    ),
+    r'isSkipped': PropertySchema(
+      id: 12,
+      name: r'isSkipped',
+      type: IsarType.bool,
+    ),
+    r'recurringInstanceNumber': PropertySchema(
+      id: 13,
+      name: r'recurringInstanceNumber',
+      type: IsarType.long,
+    ),
+    r'recurringOriginalDate': PropertySchema(
+      id: 14,
+      name: r'recurringOriginalDate',
+      type: IsarType.dateTime,
+    ),
+    r'recurringPatternId': PropertySchema(
+      id: 15,
+      name: r'recurringPatternId',
+      type: IsarType.long,
+    ),
+    r'recurringSeriesId': PropertySchema(
+      id: 16,
+      name: r'recurringSeriesId',
+      type: IsarType.string,
+    ),
+    r'status': PropertySchema(
+      id: 17,
       name: r'status',
       type: IsarType.string,
       enumMap: _TodoTaskstatusEnumValueMap,
     ),
     r'title': PropertySchema(
-      id: 10,
+      id: 18,
       name: r'title',
       type: IsarType.string,
     ),
     r'uuid': PropertySchema(
-      id: 11,
+      id: 19,
       name: r'uuid',
       type: IsarType.string,
     )
@@ -111,6 +151,32 @@ const TodoTaskSchema = CollectionSchema(
           caseSensitive: false,
         )
       ],
+    ),
+    r'isRecurringTemplate': IndexSchema(
+      id: -5255466212457147889,
+      name: r'isRecurringTemplate',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'isRecurringTemplate',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'recurringSeriesId': IndexSchema(
+      id: -3773964136021380482,
+      name: r'recurringSeriesId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'recurringSeriesId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
     )
   },
   links: {
@@ -141,6 +207,12 @@ int _todoTaskEstimateSize(
     }
   }
   bytesCount += 3 + object.importance.name.length * 3;
+  {
+    final value = object.recurringSeriesId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.status.name.length * 3;
   bytesCount += 3 + object.title.length * 3;
   bytesCount += 3 + object.uuid.length * 3;
@@ -162,9 +234,17 @@ void _todoTaskSerialize(
   writer.writeBool(offsets[6], object.isCompleted);
   writer.writeBool(offsets[7], object.isDueToday);
   writer.writeBool(offsets[8], object.isOverdue);
-  writer.writeString(offsets[9], object.status.name);
-  writer.writeString(offsets[10], object.title);
-  writer.writeString(offsets[11], object.uuid);
+  writer.writeBool(offsets[9], object.isRecurring);
+  writer.writeBool(offsets[10], object.isRecurringException);
+  writer.writeBool(offsets[11], object.isRecurringTemplate);
+  writer.writeBool(offsets[12], object.isSkipped);
+  writer.writeLong(offsets[13], object.recurringInstanceNumber);
+  writer.writeDateTime(offsets[14], object.recurringOriginalDate);
+  writer.writeLong(offsets[15], object.recurringPatternId);
+  writer.writeString(offsets[16], object.recurringSeriesId);
+  writer.writeString(offsets[17], object.status.name);
+  writer.writeString(offsets[18], object.title);
+  writer.writeString(offsets[19], object.uuid);
 }
 
 TodoTask _todoTaskDeserialize(
@@ -185,11 +265,19 @@ TodoTask _todoTaskDeserialize(
   object.isCompleted = reader.readBool(offsets[6]);
   object.isDueToday = reader.readBool(offsets[7]);
   object.isOverdue = reader.readBool(offsets[8]);
+  object.isRecurring = reader.readBool(offsets[9]);
+  object.isRecurringException = reader.readBool(offsets[10]);
+  object.isRecurringTemplate = reader.readBool(offsets[11]);
+  object.isSkipped = reader.readBool(offsets[12]);
+  object.recurringInstanceNumber = reader.readLongOrNull(offsets[13]);
+  object.recurringOriginalDate = reader.readDateTimeOrNull(offsets[14]);
+  object.recurringPatternId = reader.readLongOrNull(offsets[15]);
+  object.recurringSeriesId = reader.readStringOrNull(offsets[16]);
   object.status =
-      _TodoTaskstatusValueEnumMap[reader.readStringOrNull(offsets[9])] ??
+      _TodoTaskstatusValueEnumMap[reader.readStringOrNull(offsets[17])] ??
           TaskStatus.notStarted;
-  object.title = reader.readString(offsets[10]);
-  object.uuid = reader.readString(offsets[11]);
+  object.title = reader.readString(offsets[18]);
+  object.uuid = reader.readString(offsets[19]);
   return object;
 }
 
@@ -221,11 +309,27 @@ P _todoTaskDeserializeProp<P>(
     case 8:
       return (reader.readBool(offset)) as P;
     case 9:
+      return (reader.readBool(offset)) as P;
+    case 10:
+      return (reader.readBool(offset)) as P;
+    case 11:
+      return (reader.readBool(offset)) as P;
+    case 12:
+      return (reader.readBool(offset)) as P;
+    case 13:
+      return (reader.readLongOrNull(offset)) as P;
+    case 14:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 15:
+      return (reader.readLongOrNull(offset)) as P;
+    case 16:
+      return (reader.readStringOrNull(offset)) as P;
+    case 17:
       return (_TodoTaskstatusValueEnumMap[reader.readStringOrNull(offset)] ??
           TaskStatus.notStarted) as P;
-    case 10:
+    case 18:
       return (reader.readString(offset)) as P;
-    case 11:
+    case 19:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -289,6 +393,14 @@ extension TodoTaskQueryWhereSort on QueryBuilder<TodoTask, TodoTask, QWhere> {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isOverdue'),
+      );
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterWhere> anyIsRecurringTemplate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'isRecurringTemplate'),
       );
     });
   }
@@ -444,6 +556,118 @@ extension TodoTaskQueryWhere on QueryBuilder<TodoTask, TodoTask, QWhereClause> {
               indexName: r'isOverdue',
               lower: [],
               upper: [isOverdue],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterWhereClause>
+      isRecurringTemplateEqualTo(bool isRecurringTemplate) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'isRecurringTemplate',
+        value: [isRecurringTemplate],
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterWhereClause>
+      isRecurringTemplateNotEqualTo(bool isRecurringTemplate) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isRecurringTemplate',
+              lower: [],
+              upper: [isRecurringTemplate],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isRecurringTemplate',
+              lower: [isRecurringTemplate],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isRecurringTemplate',
+              lower: [isRecurringTemplate],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isRecurringTemplate',
+              lower: [],
+              upper: [isRecurringTemplate],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterWhereClause>
+      recurringSeriesIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'recurringSeriesId',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterWhereClause>
+      recurringSeriesIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'recurringSeriesId',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterWhereClause> recurringSeriesIdEqualTo(
+      String? recurringSeriesId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'recurringSeriesId',
+        value: [recurringSeriesId],
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterWhereClause>
+      recurringSeriesIdNotEqualTo(String? recurringSeriesId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'recurringSeriesId',
+              lower: [],
+              upper: [recurringSeriesId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'recurringSeriesId',
+              lower: [recurringSeriesId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'recurringSeriesId',
+              lower: [recurringSeriesId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'recurringSeriesId',
+              lower: [],
+              upper: [recurringSeriesId],
               includeUpper: false,
             ));
       }
@@ -1064,6 +1288,422 @@ extension TodoTaskQueryFilter
     });
   }
 
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition> isRecurringEqualTo(
+      bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isRecurring',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      isRecurringExceptionEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isRecurringException',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      isRecurringTemplateEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isRecurringTemplate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition> isSkippedEqualTo(
+      bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isSkipped',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringInstanceNumberIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'recurringInstanceNumber',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringInstanceNumberIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'recurringInstanceNumber',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringInstanceNumberEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'recurringInstanceNumber',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringInstanceNumberGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'recurringInstanceNumber',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringInstanceNumberLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'recurringInstanceNumber',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringInstanceNumberBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'recurringInstanceNumber',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringOriginalDateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'recurringOriginalDate',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringOriginalDateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'recurringOriginalDate',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringOriginalDateEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'recurringOriginalDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringOriginalDateGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'recurringOriginalDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringOriginalDateLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'recurringOriginalDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringOriginalDateBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'recurringOriginalDate',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringPatternIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'recurringPatternId',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringPatternIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'recurringPatternId',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringPatternIdEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'recurringPatternId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringPatternIdGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'recurringPatternId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringPatternIdLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'recurringPatternId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringPatternIdBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'recurringPatternId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'recurringSeriesId',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'recurringSeriesId',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'recurringSeriesId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'recurringSeriesId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'recurringSeriesId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'recurringSeriesId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'recurringSeriesId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'recurringSeriesId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'recurringSeriesId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'recurringSeriesId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'recurringSeriesId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition>
+      recurringSeriesIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'recurringSeriesId',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<TodoTask, TodoTask, QAfterFilterCondition> statusEqualTo(
     TaskStatus value, {
     bool caseSensitive = true,
@@ -1626,6 +2266,108 @@ extension TodoTaskQuerySortBy on QueryBuilder<TodoTask, TodoTask, QSortBy> {
     });
   }
 
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByIsRecurring() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurring', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByIsRecurringDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurring', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByIsRecurringException() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringException', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      sortByIsRecurringExceptionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringException', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByIsRecurringTemplate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringTemplate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      sortByIsRecurringTemplateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringTemplate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByIsSkipped() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSkipped', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByIsSkippedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSkipped', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      sortByRecurringInstanceNumber() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringInstanceNumber', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      sortByRecurringInstanceNumberDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringInstanceNumber', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByRecurringOriginalDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringOriginalDate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      sortByRecurringOriginalDateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringOriginalDate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByRecurringPatternId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringPatternId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      sortByRecurringPatternIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringPatternId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByRecurringSeriesId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringSeriesId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByRecurringSeriesIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringSeriesId', Sort.desc);
+    });
+  }
+
   QueryBuilder<TodoTask, TodoTask, QAfterSortBy> sortByStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'status', Sort.asc);
@@ -1785,6 +2527,108 @@ extension TodoTaskQuerySortThenBy
     });
   }
 
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByIsRecurring() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurring', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByIsRecurringDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurring', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByIsRecurringException() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringException', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      thenByIsRecurringExceptionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringException', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByIsRecurringTemplate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringTemplate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      thenByIsRecurringTemplateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isRecurringTemplate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByIsSkipped() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSkipped', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByIsSkippedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSkipped', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      thenByRecurringInstanceNumber() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringInstanceNumber', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      thenByRecurringInstanceNumberDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringInstanceNumber', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByRecurringOriginalDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringOriginalDate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      thenByRecurringOriginalDateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringOriginalDate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByRecurringPatternId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringPatternId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy>
+      thenByRecurringPatternIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringPatternId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByRecurringSeriesId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringSeriesId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByRecurringSeriesIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'recurringSeriesId', Sort.desc);
+    });
+  }
+
   QueryBuilder<TodoTask, TodoTask, QAfterSortBy> thenByStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'status', Sort.asc);
@@ -1880,6 +2724,58 @@ extension TodoTaskQueryWhereDistinct
     });
   }
 
+  QueryBuilder<TodoTask, TodoTask, QDistinct> distinctByIsRecurring() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isRecurring');
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QDistinct> distinctByIsRecurringException() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isRecurringException');
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QDistinct> distinctByIsRecurringTemplate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isRecurringTemplate');
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QDistinct> distinctByIsSkipped() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isSkipped');
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QDistinct>
+      distinctByRecurringInstanceNumber() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'recurringInstanceNumber');
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QDistinct>
+      distinctByRecurringOriginalDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'recurringOriginalDate');
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QDistinct> distinctByRecurringPatternId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'recurringPatternId');
+    });
+  }
+
+  QueryBuilder<TodoTask, TodoTask, QDistinct> distinctByRecurringSeriesId(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'recurringSeriesId',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<TodoTask, TodoTask, QDistinct> distinctByStatus(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1962,6 +2858,58 @@ extension TodoTaskQueryProperty
   QueryBuilder<TodoTask, bool, QQueryOperations> isOverdueProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isOverdue');
+    });
+  }
+
+  QueryBuilder<TodoTask, bool, QQueryOperations> isRecurringProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isRecurring');
+    });
+  }
+
+  QueryBuilder<TodoTask, bool, QQueryOperations>
+      isRecurringExceptionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isRecurringException');
+    });
+  }
+
+  QueryBuilder<TodoTask, bool, QQueryOperations> isRecurringTemplateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isRecurringTemplate');
+    });
+  }
+
+  QueryBuilder<TodoTask, bool, QQueryOperations> isSkippedProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isSkipped');
+    });
+  }
+
+  QueryBuilder<TodoTask, int?, QQueryOperations>
+      recurringInstanceNumberProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'recurringInstanceNumber');
+    });
+  }
+
+  QueryBuilder<TodoTask, DateTime?, QQueryOperations>
+      recurringOriginalDateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'recurringOriginalDate');
+    });
+  }
+
+  QueryBuilder<TodoTask, int?, QQueryOperations> recurringPatternIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'recurringPatternId');
+    });
+  }
+
+  QueryBuilder<TodoTask, String?, QQueryOperations>
+      recurringSeriesIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'recurringSeriesId');
     });
   }
 

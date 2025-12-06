@@ -8,112 +8,255 @@ import '../../../../shared/widgets/fluent_card.dart';
 
 /// A compact card displaying task summary information
 /// Used in horizontal scrollable lists on the home page
-class TaskSummaryCard extends StatelessWidget {
+/// Tap to expand and reveal action buttons (Edit, Complete, Delete)
+class TaskSummaryCard extends StatefulWidget {
   const TaskSummaryCard({
     super.key,
     required this.task,
-    this.onTap,
+    this.onEdit,
     this.width = 280,
     this.onComplete,
     this.onDelete,
-    this.enableSwipeActions = false,
+    this.onImportanceChange,
   });
 
   final TodoTask task;
-  final VoidCallback? onTap;
+  final VoidCallback? onEdit;
   final double width;
   final VoidCallback? onComplete;
   final VoidCallback? onDelete;
-  final bool enableSwipeActions;
+  final void Function(ImportanceLevel importance)? onImportanceChange;
+
+  @override
+  State<TaskSummaryCard> createState() => _TaskSummaryCardState();
+}
+
+class _TaskSummaryCardState extends State<TaskSummaryCard>
+    with SingleTickerProviderStateMixin {
+  bool _isExpanded = false;
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
+  void _showImportancePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => _ImportancePickerSheet(
+        currentImportance: widget.task.importance,
+        onSelect: (importance) {
+          Navigator.pop(context);
+          widget.onImportanceChange?.call(importance);
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final task = widget.task;
+
     return Container(
-      width: width,
+      width: widget.width,
       margin: const EdgeInsets.only(right: 12),
       child: FluentCard(
         shadowLevel: ShadowLevel.subtle,
         borderRadius: AppConstants.radiusLarge,
-        padding: const EdgeInsets.all(16),
-        onTap: onTap,
-        onSwipeRight: enableSwipeActions ? onComplete : null,
-        onSwipeLeft: enableSwipeActions ? onDelete : null,
-        swipeRightLabel: 'Complete',
-        swipeRightIcon: Icons.check_circle,
-        swipeRightColor: AppColors.purple4,
-        swipeLeftLabel: 'Delete',
-        swipeLeftIcon: Icons.delete,
-        swipeLeftColor: AppColors.error,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header: Importance indicator + Due date
-            Row(
-              children: [
-                // Importance indicator
-                _ImportanceIndicator(importance: task.importance),
-                const Spacer(),
-                // Due date
-                if (task.dueDate != null)
-                  _DueDateBadge(dueDate: task.dueDate!, isOverdue: task.isOverdue),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // Task title
-            Row(children: [
-              Text(
-                task.title,
-                style: AppTypography.h4.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Spacer(),
-              Text(
-                task.status.label
-              ),
-            ]),
-
-            if (task.description != null && task.description!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                task.description!,
-                style: AppTypography.body2.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-
-            // Tags (if any)
-            if (task.tags.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: task.tags.take(3).map((tag) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Color(tag.colorValue).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(AppConstants.radiusSmall),
+        padding: EdgeInsets.zero,
+        onTap: _toggleExpanded,
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Main content with padding
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header: Importance indicator + Due date
+                    Row(
+                      children: [
+                        _ImportanceIndicator(importance: task.importance),
+                        const Spacer(),
+                        if (task.dueDate != null)
+                          _DueDateBadge(dueDate: task.dueDate!, isOverdue: task.isOverdue),
+                      ],
                     ),
-                    child: Text(
-                      tag.name,
-                      style: AppTypography.caption.copyWith(
-                        color: Color(tag.colorValue),
-                        fontWeight: FontWeight.w500,
+
+                    const SizedBox(height: 12),
+
+                    // Task title
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            task.title,
+                            style: AppTypography.h4.copyWith(
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          task.status.label,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    if (task.description != null && task.description!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        task.description!,
+                        style: AppTypography.body2.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+
+                    // Tags (if any)
+                    if (task.tags.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: task.tags.take(3).map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Color(tag.colorValue).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(AppConstants.radiusSmall),
+                            ),
+                            child: Text(
+                              tag.name,
+                              style: AppTypography.caption.copyWith(
+                                color: Color(tag.colorValue),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Expandable action buttons
+              if (_isExpanded) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: AppColors.divider,
+                        width: 1,
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Edit button
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.edit_outlined,
+                          label: 'Edit',
+                          color: AppColors.primary,
+                          onTap: widget.onEdit,
+                        ),
+                      ),
+                      // Importance button
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.flag_outlined,
+                          label: 'Priority',
+                          color: AppColors.warning,
+                          onTap: widget.onImportanceChange != null ? _showImportancePicker : null,
+                        ),
+                      ),
+                      // Complete button
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.check_circle_outline,
+                          label: 'Complete',
+                          color: AppColors.purple4,
+                          onTap: widget.onComplete,
+                        ),
+                      ),
+                      // Delete button
+                      Expanded(
+                        child: _ActionButton(
+                          icon: Icons.delete_outline,
+                          label: 'Delete',
+                          color: AppColors.error,
+                          onTap: widget.onDelete,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Action button for expanded card state
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: color,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: AppTypography.caption.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -237,5 +380,95 @@ class _DueDateBadge extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Bottom sheet for selecting task importance
+class _ImportancePickerSheet extends StatelessWidget {
+  const _ImportancePickerSheet({
+    required this.currentImportance,
+    required this.onSelect,
+  });
+
+  final ImportanceLevel currentImportance;
+  final void Function(ImportanceLevel) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'Set Priority',
+                style: AppTypography.h3.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Importance options
+            ...ImportanceLevel.values.map((importance) {
+              final isSelected = importance == currentImportance;
+              final color = _getImportanceColor(importance);
+              return InkWell(
+                onTap: () => onSelect(importance),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  color: isSelected ? color.withValues(alpha: 0.1) : null,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          importance.label,
+                          style: AppTypography.body1.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(
+                          Icons.check,
+                          color: color,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getImportanceColor(ImportanceLevel importance) {
+    switch (importance) {
+      case ImportanceLevel.low:
+        return AppColors.lowImportance;
+      case ImportanceLevel.medium:
+        return AppColors.mediumImportance;
+      case ImportanceLevel.high:
+        return AppColors.highImportance;
+      case ImportanceLevel.critical:
+        return AppColors.criticalImportance;
+    }
   }
 }

@@ -156,7 +156,7 @@ class TodayTasksSheet extends ConsumerWidget {
           child: TaskSummaryCard(
             task: tasks[index],
             width: MediaQuery.of(context).size.width - 48,
-            onTap: () {
+            onEdit: () {
               Navigator.pop(context);
               Navigator.push(
                 context,

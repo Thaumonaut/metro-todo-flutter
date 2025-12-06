@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/providers/preferences_providers.dart';
+import '../../../../data/models/importance_level.dart';
+import '../../../settings/presentation/pages/theme_settings_page.dart';
 
 /// The settings section of the home page
 /// Displays various settings options organized into groups
-class SettingsSection extends StatelessWidget {
+class SettingsSection extends ConsumerWidget {
   const SettingsSection({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferences = ref.watch(appPreferencesProvider);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -35,16 +40,20 @@ class SettingsSection extends StatelessWidget {
             [
               SettingsItem(
                 title: 'Theme',
-                subtitle: 'Light',
+                subtitle: _getThemeModeLabel(preferences.themeMode),
                 icon: Icons.palette,
                 onTap: () {
-                  // TODO: Implement theme settings
-                  // HINT: You'll need to create a theme selection page or dialog
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ThemeSettingsPage(),
+                    ),
+                  );
                 },
               ),
               SettingsItem(
                 title: 'Notifications',
-                subtitle: 'Enabled',
+                subtitle: preferences.notificationsEnabled ? 'Enabled' : 'Disabled',
                 icon: Icons.notifications,
                 onTap: () {
                   // TODO: Implement notification settings
@@ -53,12 +62,9 @@ class SettingsSection extends StatelessWidget {
               ),
               SettingsItem(
                 title: 'Default Importance',
-                subtitle: 'Medium',
+                subtitle: preferences.defaultImportance.label,
                 icon: Icons.flag,
-                onTap: () {
-                  // TODO: Implement default importance settings
-                  // HINT: You could show a dialog with importance options
-                },
+                onTap: () => _showDefaultImportanceDialog(context, ref),
               ),
             ],
           ),
@@ -228,6 +234,55 @@ class SettingsSection extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Helper method to get theme mode label
+  String _getThemeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+        return 'System';
+    }
+  }
+
+  /// Show dialog to select default importance
+  void _showDefaultImportanceDialog(BuildContext context, WidgetRef ref) {
+    final currentImportance = ref.read(appPreferencesProvider).defaultImportance;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Default Importance',
+          style: AppTypography.h3,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ImportanceLevel.values.map((importance) {
+            return RadioListTile<ImportanceLevel>(
+              title: Text(importance.label),
+              value: importance,
+              groupValue: currentImportance,
+              onChanged: (value) {
+                if (value != null) {
+                  ref.read(appPreferencesProvider.notifier).setDefaultImportance(value);
+                  Navigator.pop(context);
+                }
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
       ),
     );
   }

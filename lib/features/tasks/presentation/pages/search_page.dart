@@ -4,7 +4,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../providers/search_providers.dart';
-import '../../../home/presentation/widgets/task_list_section.dart';
 import 'task_detail_page.dart';
 
 /// Page for searching tasks

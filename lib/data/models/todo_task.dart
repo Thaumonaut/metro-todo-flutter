@@ -53,6 +53,37 @@ class TodoTask {
   @Index()
   late bool isOverdue;
 
+  // Recurrence fields
+  /// Is this task part of a recurring series?
+  late bool isRecurring;
+
+  /// Is this the master template for a recurring series?
+  @Index()
+  late bool isRecurringTemplate;
+
+  /// Link to RecurringPattern (for templates) - stores the ID
+  int? recurringPatternId;
+
+  /// UUID to group all instances of a recurring series
+  @Index()
+  String? recurringSeriesId;
+
+  /// Original scheduled date for this instance
+  DateTime? recurringOriginalDate;
+
+  /// Sequence number in the series (0, 1, 2...)
+  int? recurringInstanceNumber;
+
+  /// This instance was edited independently from the series
+  late bool isRecurringException;
+
+  /// This instance was skipped/postponed
+  late bool isSkipped;
+
+  /// Helper method to check if this is a recurring instance (not template)
+  @ignore
+  bool get isRecurringInstance => isRecurring && !isRecurringTemplate;
+
   /// Helper method to get importance value for sorting
   int get importanceValue => importance.value;
 
