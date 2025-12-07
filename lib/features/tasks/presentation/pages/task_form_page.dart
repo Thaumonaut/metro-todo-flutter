@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
@@ -37,6 +38,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   late ImportanceLevel _selectedImportance;
   late TaskStatus _selectedStatus;
   DateTime? _selectedDueDate;
+  List<DateTime> _reminders = []; // Multiple reminders
   List<TaskTag> _selectedTags = [];
   bool _isLoading = false;
 
@@ -72,6 +74,8 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       );
 
       _selectedDueDate = task.dueDate;
+      // Reminders loaded async
+      _loadReminders(task.id);
 
       // Load tags asynchronously
       _loadTags(task.id);
@@ -85,6 +89,20 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       // Creating new task - set defaults
       _selectedImportance = ImportanceLevel.medium;
       _selectedStatus = TaskStatus.notStarted;
+    }
+  }
+
+  Future<void> _loadReminders(int taskId) async {
+    try {
+      final repo = ref.read(todoRepositoryProvider);
+      final loaded = await repo.getReminders(taskId);
+      if (mounted) {
+        setState(() {
+          _reminders = loaded.map((r) => r.scheduledAt).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading reminders: $e');
     }
   }
 
@@ -264,17 +282,30 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
               const SizedBox(height: 24),
             ],
 
-            // Due date picker
-            DatePickerField(
-              label: _isRecurring ? 'Start Date' : 'Due Date',
-              selectedDate: _selectedDueDate,
-              onDateSelected: (date) {
+            // Due Date & Time picker
+            DateTimeSelectionField(
+              label: _isRecurring ? 'Start Date' : 'Due Date & Time',
+              selectedDateTime: _selectedDueDate,
+              onDateTimeSelected: (date) {
                 setState(() {
                   _selectedDueDate = date;
                 });
               },
-              firstDate: DateTime.now(),
+              firstDate: DateTime.now().subtract(
+                const Duration(days: 365),
+              ), // Allow past dates for reference? Or strict?
+              // Typically allow past if editing, but for new tasks maybe today? Standard is allow past in case you forgot to log it.
+              includeTime:
+                  !_isRecurring, // Recurring start date usually just date, but could be specific time. Let's allow simple date for recurring.
             ),
+            const SizedBox(height: 16),
+
+            // Reminders Section
+            if (!_isRecurring) ...[
+              _buildRemindersSection(),
+              const SizedBox(height: 24),
+            ],
+
             const SizedBox(height: 24),
 
             // Recurrence pattern selector (not shown when editing recurring instance)
@@ -389,13 +420,13 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   Color _getStatusColor(TaskStatus status) {
     switch (status) {
       case TaskStatus.notStarted:
-        return Theme.of(context).colorScheme.onSurfaceVariant;
+        return AppColors.notStarted;
       case TaskStatus.inProgress:
-        return Theme.of(context).colorScheme.primary;
+        return AppColors.inProgress;
       case TaskStatus.onHold:
-        return AppColors.purple6;
+        return AppColors.onHold;
       case TaskStatus.completed:
-        return AppColors.purple4;
+        return AppColors.completed;
     }
   }
 
@@ -412,6 +443,116 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
     }
   }
 
+  Widget _buildRemindersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Reminders',
+              style: AppTypography.body2.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _showAddReminderPicker,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add'),
+            ),
+          ],
+        ),
+        if (_reminders.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
+            ),
+            child: Column(
+              children: _reminders.asMap().entries.map((entry) {
+                final index = entry.key;
+                final reminder = entry.value;
+                return Column(
+                  children: [
+                    if (index > 0)
+                      Divider(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ListTile(
+                      dense: true,
+                      leading: Icon(
+                        Icons.alarm,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      title: Text(
+                        DateFormat('MMM d, y @ h:mm a').format(reminder),
+                        style: AppTypography.body2,
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () {
+                          setState(() {
+                            _reminders.removeAt(index);
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ] else
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text(
+              'No reminders set',
+              style: AppTypography.caption.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showAddReminderPicker() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+    );
+
+    if (date != null && mounted) {
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+
+      if (time != null && mounted) {
+        final reminder = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          time.hour,
+          time.minute,
+        );
+        setState(() {
+          _reminders.add(reminder);
+          _reminders.sort(); // Keep sorted
+        });
+      }
+    }
+  }
+
   Future<void> _saveTask() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -425,40 +566,49 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       if (isEditMode) {
         // Update existing task
         final task = widget.task!;
-        // TodoTask is immutable (Drift generated). We must create a copy with new values.
-        // Also we can't directly assign to 'task' variable unless we update the widget.task which is final.
-        // We need to pass the updated FIELDS to the provider, or create a copy.
-        // Since updateTaskProvider expects TodoTask (Drift object), we create a copy.
 
-        final updatedTask = task.copyWith(
+        // Use constructor instead of copyWith to explicitly handle nullable fields
+        final updatedTask = TodoTask(
+          id: task.id,
+          uuid: task.uuid,
           title: _titleController.text.trim(),
           description: _descriptionController.text.trim().isEmpty
-              ? const Value(null)
-              : Value(_descriptionController.text.trim()),
+              ? null
+              : _descriptionController.text.trim(),
           importance: _selectedImportance.name,
           status: _selectedStatus.name,
-          dueDate: _selectedDueDate != null
-              ? Value(_selectedDueDate)
-              : const Value.absent(),
+          dueDate: _selectedDueDate,
+          reminderDateTime: _reminders.isNotEmpty ? _reminders.first : null,
+          createdAt: task.createdAt,
+          completedAt: task.completedAt,
+          isCompleted: task.isCompleted,
+          isRecurring: task.isRecurring,
+          isRecurringTemplate: task.isRecurringTemplate,
+          isRecurringException: task.isRecurringException,
+          recurringSeriesId: task.recurringSeriesId,
+          recurringPatternId: task.recurringPatternId,
+          recurringInstanceNumber: task.recurringInstanceNumber,
+          recurringOriginalDate: task.recurringOriginalDate,
+          isSkipped: task.isSkipped,
+          isDueToday: task.isDueToday,
+          isOverdue: task.isOverdue,
         );
 
         // Update task
-        final updateTask = ref.read(updateTaskProvider);
-        await updateTask(updatedTask);
+        // Update task via Repository directly to handle reminders
+        final taskRepo = ref.read(todoRepositoryProvider);
+        await taskRepo.updateTodo(
+          updatedTask.id,
+          title: updatedTask.title,
+          description: updatedTask.description,
+          importance: _selectedImportance,
+          status: _selectedStatus,
+          dueDate: updatedTask.dueDate,
+          reminders: _reminders,
+          isCompleted: updatedTask.isCompleted,
+        );
 
-        // Handle tag changes
-        // Since we loaded tags initially, we can compare.
-        // But logic below used `task.tags`. Now we must use `_selectedTags`.
-        // Wait, `updatedTask` doesn't have tags.
-        // Drift version of TodoTask doesn't track tags.
-        // We need 'previous tags'.
-        // We can fetch them again or trust our initial load if we stored them somewhere.
-        // We didn't store 'originalTags'.
-        // BUT TagRepository logic below:
-        // final currentTagIds = task.tags.map((t) => t.id).toSet();
-        // This is invalid because `task.tags` is not available.
-        // We must fetch current tags from DB to compare, OR (simpler) use the `_selectedTags` and update associations.
-        // Proper way:
+        // Handle tag changes using repository
         final tagRepo = ref.read(tagRepositoryProvider);
         final currentTags = await tagRepo.getTagsForTask(task.id);
         final currentTagIds = currentTags.map((t) => t.id).toSet();
@@ -493,24 +643,8 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
         // Create new task
         if (_isRecurring && _recurrencePattern != null) {
           // Create recurring task
-          if (_selectedDueDate == null) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Please select a start date for the recurring task',
-                  ),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-            return;
-          }
+          final effectiveStartDate = _selectedDueDate ?? DateTime.now();
 
-          // For recurring template creation, we need a template object.
-          // Since TodoTask is immutable, we can use a basic constructor (Drift generated class has constructor).
-          // But createRecurringTaskProvider likely expects a "template" object to copy fields from.
-          // Let's create a temporary object.
           final template = TodoTask(
             id: 0, // placeholder
             uuid: const Uuid().v4(),
@@ -520,16 +654,29 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
                 : _descriptionController.text.trim(),
             importance: _selectedImportance.name,
             status: _selectedStatus.name,
-            dueDate: _selectedDueDate,
+            dueDate: effectiveStartDate,
+            reminderDateTime: _reminders.isNotEmpty ? _reminders.first : null,
             createdAt: DateTime.now(),
             isCompleted: false,
             isRecurring: true,
             isRecurringTemplate: true,
             isRecurringException: false,
             isSkipped: false,
-            isDueToday: false, // will be computed
-            isOverdue: false, // will be computed
+            isDueToday: false,
+            isOverdue: false,
           );
+
+          if (_recurrencePattern == null) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please configure recurrence pattern'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
 
           final createRecurring = ref.read(createRecurringTaskProvider);
           await createRecurring(
@@ -548,15 +695,21 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
           }
         } else {
           // Create regular task
-          final createTask = ref.read(createTaskProvider);
-          await createTask(
+          // Use TodoRepository.createTodo which handles insertion
+
+          final taskRepo = ref.read(todoRepositoryProvider);
+
+          // Note: createTodo takes tagIds as argument, handling relations.
+
+          await taskRepo.createTodo(
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim().isEmpty
                 ? null
                 : _descriptionController.text.trim(),
-            importance: _selectedImportance,
-            status: _selectedStatus,
+            importance: _selectedImportance, // Enum
+            status: _selectedStatus, // Enum
             dueDate: _selectedDueDate,
+            reminders: _reminders,
             tagIds: _selectedTags.map((t) => t.id).toList(),
           );
 
@@ -588,4 +741,6 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       }
     }
   }
-} // End class
+}
+
+// End class

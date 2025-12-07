@@ -4,12 +4,9 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../../../data/models/importance_level.dart';
-import '../../../../data/models/task_status.dart'; // Needed for Status parsing if we want label
+import '../../../../data/models/task_status.dart';
 import '../../../../shared/widgets/fluent_card.dart';
 
-/// A compact card displaying task summary information
-/// Used in horizontal scrollable lists on the home page
-/// Tap to expand and reveal action buttons (Edit, Complete, Delete)
 class TaskSummaryCard extends StatefulWidget {
   const TaskSummaryCard({
     super.key,
@@ -19,6 +16,9 @@ class TaskSummaryCard extends StatefulWidget {
     this.onComplete,
     this.onDelete,
     this.onImportanceChange,
+    this.onStatusChange,
+    this.isSelectionMode = false,
+    this.isSelected = false,
   });
 
   final TodoTask task;
@@ -27,6 +27,9 @@ class TaskSummaryCard extends StatefulWidget {
   final VoidCallback? onComplete;
   final VoidCallback? onDelete;
   final void Function(ImportanceLevel importance)? onImportanceChange;
+  final void Function(TaskStatus status)? onStatusChange;
+  final bool isSelectionMode;
+  final bool isSelected;
 
   @override
   State<TaskSummaryCard> createState() => _TaskSummaryCardState();
@@ -37,6 +40,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
   bool _isExpanded = false;
 
   void _toggleExpanded() {
+    if (widget.isSelectionMode) return;
     setState(() {
       _isExpanded = !_isExpanded;
     });
@@ -64,11 +68,32 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
     );
   }
 
+  void _showStatusPicker() {
+    final currentStatus = TaskStatus.values.firstWhere(
+      (e) => e.name == widget.task.status,
+      orElse: () => TaskStatus.notStarted,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => _StatusPickerSheet(
+        currentStatus: currentStatus,
+        onSelect: (status) {
+          Navigator.pop(context);
+          widget.onStatusChange?.call(status);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
 
-    // Parse enums
     final importance = ImportanceLevel.values.firstWhere(
       (e) => e.name == task.importance,
       orElse: () => ImportanceLevel.medium,
@@ -79,7 +104,6 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
       orElse: () => TaskStatus.notStarted,
     );
 
-    // Status label logic
     String statusLabel = 'Not Started';
     switch (status) {
       case TaskStatus.notStarted:
@@ -96,162 +120,193 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
         break;
     }
 
-    return Container(
-      width: widget.width,
-      margin: const EdgeInsets.only(right: 12),
-      child: FluentCard(
-        shadowLevel: ShadowLevel.subtle,
-        borderRadius: AppConstants.radiusLarge,
-        padding: EdgeInsets.zero,
-        onTap: _toggleExpanded,
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          alignment: Alignment.topCenter,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Main content with padding
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header: Importance indicator + Due date + Recurring badge
-                    Row(
-                      children: [
-                        _ImportanceIndicator(importance: importance),
-                        const Spacer(),
-                        if (task.isRecurring && task.isRecurringTemplate) ...[
-                          _RecurringBadge(),
-                          const SizedBox(width: 6),
-                        ],
-                        if (task.dueDate != null)
-                          _DueDateBadge(
-                            dueDate: task.dueDate!,
-                            isOverdue: task.isOverdue,
-                          ),
-                      ],
-                    ),
+    // Determine border color based on selection state or completion
+    final borderColor = widget.isSelected
+        ? Theme.of(context).colorScheme.primary
+        : (task.isCompleted
+              ? Theme.of(context).colorScheme.outline.withValues(alpha: 0.1)
+              : Colors.transparent);
 
-                    const SizedBox(height: 12),
+    final borderWidth = widget.isSelected
+        ? 2.0
+        : 0.0; // 0 for transparent border usually, or handle via decoration
 
-                    // Task title
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            task.title,
-                            style: AppTypography.h4.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          statusLabel,
-                          style: AppTypography.caption.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (task.description != null &&
-                        task.description!.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        task.description!,
-                        style: AppTypography.body2.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-
-                    // Tags: TodoTask doesn't have tags populated by default.
-                    // Omit for now to avoid compilation error.
-                    /*
-                    if (task.tags.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: task.tags.take(3).map((tag) {
-                          return Container(
-                            ...
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                    */
-                  ],
-                ),
-              ),
-
-              // Expandable action buttons
-              if (_isExpanded) ...[
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: Theme.of(context).dividerColor,
-                        width: 1,
-                      ),
-                    ),
-                  ),
+    return TapRegion(
+      onTapOutside: (_) {
+        if (_isExpanded) {
+          setState(() {
+            _isExpanded = false;
+          });
+        }
+      },
+      child: Container(
+        width: widget.width,
+        margin: const EdgeInsets.only(right: 12),
+        // We use a custom decoration to handle the selection border nicely
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
+          border: widget.isSelected
+              ? Border.all(color: borderColor, width: borderWidth)
+              : null,
+        ),
+        child: FluentCard(
+          shadowLevel: ShadowLevel.subtle,
+          borderRadius: AppConstants.radiusLarge,
+          padding: EdgeInsets.zero,
+          onTap: widget.isSelectionMode
+              ? null
+              : _toggleExpanded, // Disable expansion in selection mode, let parent handle tap
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      // Edit button
+                      // Selection Indicator
+                      if (widget.isSelectionMode) ...[
+                        _SelectionCheckbox(isSelected: widget.isSelected),
+                        const SizedBox(width: 12),
+                      ],
+
+                      // Main Content Column
                       Expanded(
-                        child: _ActionButton(
-                          icon: Icons.edit_outlined,
-                          label: 'Edit',
-                          color: Theme.of(context).colorScheme.primary,
-                          onTap: widget.onEdit,
-                        ),
-                      ),
-                      // Importance button
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.flag_outlined,
-                          label: 'Priority',
-                          color: AppColors.warning,
-                          onTap: widget.onImportanceChange != null
-                              ? _showImportancePicker
-                              : null,
-                        ),
-                      ),
-                      // Complete button
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.check_circle_outline,
-                          label: 'Complete',
-                          color: AppColors.purple4,
-                          onTap: widget.onComplete,
-                        ),
-                      ),
-                      // Delete button
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.delete_outline,
-                          label: 'Delete',
-                          color: AppColors.error,
-                          onTap: widget.onDelete,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                _ImportanceIndicator(importance: importance),
+                                const Spacer(),
+                                if (task.isRecurring &&
+                                    task.isRecurringTemplate) ...[
+                                  const _RecurringBadge(),
+                                  const SizedBox(width: 6),
+                                ],
+                                if (task.dueDate != null)
+                                  _DueDateBadge(
+                                    dueDate: task.dueDate!,
+                                    isOverdue: task.isOverdue,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    task.title,
+                                    style: AppTypography.h4.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                      decoration: task.isCompleted
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  statusLabel,
+                                  style: AppTypography.caption.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (task.description != null &&
+                                task.description!.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                task.description!,
+                                style: AppTypography.body2.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
+                if (_isExpanded && !widget.isSelectionMode) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _ActionButton(
+                            icon: Icons.edit_outlined,
+                            label: 'Edit',
+                            color: Theme.of(context).colorScheme.primary,
+                            onTap: widget.onEdit,
+                          ),
+                        ),
+                        Expanded(
+                          child: _ActionButton(
+                            icon: Icons.donut_large,
+                            label: 'Status',
+                            color: Theme.of(context).colorScheme.tertiary,
+                            onTap: widget.onStatusChange != null
+                                ? _showStatusPicker
+                                : null,
+                          ),
+                        ),
+                        Expanded(
+                          child: _ActionButton(
+                            icon: Icons.flag_outlined,
+                            label: 'Priority',
+                            color: AppColors.warning,
+                            onTap: widget.onImportanceChange != null
+                                ? _showImportancePicker
+                                : null,
+                          ),
+                        ),
+                        Expanded(
+                          child: _ActionButton(
+                            icon: Icons.check_circle_outline,
+                            label: 'Complete',
+                            color: AppColors.purple4,
+                            onTap: widget.onComplete,
+                          ),
+                        ),
+                        Expanded(
+                          child: _ActionButton(
+                            icon: Icons.delete_outline,
+                            label: 'Delete',
+                            color: AppColors.error,
+                            onTap: widget.onDelete,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -259,7 +314,35 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
   }
 }
 
-/// Action button for expanded card state
+class _SelectionCheckbox extends StatelessWidget {
+  final bool isSelected;
+
+  const _SelectionCheckbox({required this.isSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: isSelected
+            ? Theme.of(context).colorScheme.primary
+            : Colors.transparent,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.outline,
+          width: 2,
+        ),
+      ),
+      child: isSelected
+          ? const Icon(Icons.check, size: 16, color: Colors.white)
+          : null,
+    );
+  }
+}
+
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
@@ -298,7 +381,6 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-/// Importance level indicator
 class _ImportanceIndicator extends StatelessWidget {
   const _ImportanceIndicator({required this.importance});
 
@@ -350,7 +432,6 @@ class _ImportanceIndicator extends StatelessWidget {
   }
 }
 
-/// Due date badge
 class _DueDateBadge extends StatelessWidget {
   const _DueDateBadge({required this.dueDate, required this.isOverdue});
 
@@ -407,7 +488,6 @@ class _DueDateBadge extends StatelessWidget {
   }
 }
 
-/// Recurring task badge
 class _RecurringBadge extends StatelessWidget {
   const _RecurringBadge();
 
@@ -441,7 +521,6 @@ class _RecurringBadge extends StatelessWidget {
   }
 }
 
-/// Bottom sheet for selecting task importance
 class _ImportancePickerSheet extends StatelessWidget {
   const _ImportancePickerSheet({
     required this.currentImportance,
@@ -449,84 +528,128 @@ class _ImportancePickerSheet extends StatelessWidget {
   });
 
   final ImportanceLevel currentImportance;
-  final void Function(ImportanceLevel) onSelect;
+  final ValueChanged<ImportanceLevel> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Select Priority',
+            style: AppTypography.h3.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ...ImportanceLevel.values.map(
+            (importance) => _buildOption(context, importance),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOption(BuildContext context, ImportanceLevel importance) {
+    final isSelected = importance == currentImportance;
+    return InkWell(
+      onTap: () => onSelect(importance),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primaryContainer
+              : null,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'Set Priority',
-                style: AppTypography.h3.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
+            _ImportanceIndicator(importance: importance),
+            const Spacer(),
+            if (isSelected)
+              Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPickerSheet extends StatelessWidget {
+  const _StatusPickerSheet({
+    required this.currentStatus,
+    required this.onSelect,
+  });
+
+  final TaskStatus currentStatus;
+  final ValueChanged<TaskStatus> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Change Status',
+            style: AppTypography.h3.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ...TaskStatus.values.map((status) => _buildOption(context, status)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOption(BuildContext context, TaskStatus status) {
+    final isSelected = status == currentStatus;
+    return InkWell(
+      onTap: () => onSelect(status),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primaryContainer
+              : null,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Text(
+              _getStatusLabel(status),
+              style: AppTypography.body1.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            const SizedBox(height: 16),
-            // Importance options
-            ...ImportanceLevel.values.map((importance) {
-              final isSelected = importance == currentImportance;
-              final color = _getImportanceColor(importance);
-              return InkWell(
-                onTap: () => onSelect(importance),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  color: isSelected ? color.withValues(alpha: 0.1) : null,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          importance.label,
-                          style: AppTypography.body1.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      if (isSelected) Icon(Icons.check, color: color, size: 20),
-                    ],
-                  ),
-                ),
-              );
-            }),
+            const Spacer(),
+            if (isSelected)
+              Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
           ],
         ),
       ),
     );
   }
 
-  Color _getImportanceColor(ImportanceLevel importance) {
-    switch (importance) {
-      case ImportanceLevel.low:
-        return AppColors.lowImportance;
-      case ImportanceLevel.medium:
-        return AppColors.mediumImportance;
-      case ImportanceLevel.high:
-        return AppColors.highImportance;
-      case ImportanceLevel.critical:
-        return AppColors.criticalImportance;
+  String _getStatusLabel(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.notStarted:
+        return 'Not Started';
+      case TaskStatus.inProgress:
+        return 'In Progress';
+      case TaskStatus.onHold:
+        return 'On Hold';
+      case TaskStatus.completed:
+        return 'Completed';
     }
   }
 }

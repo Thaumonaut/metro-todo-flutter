@@ -63,8 +63,9 @@ class ImportanceSelector extends StatelessWidget {
                       _getImportanceLabel(importance),
                       style: AppTypography.body2.copyWith(
                         color: isSelected ? Colors.white : color,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -80,13 +81,13 @@ class ImportanceSelector extends StatelessWidget {
   Color _getImportanceColor(ImportanceLevel importance) {
     switch (importance) {
       case ImportanceLevel.low:
-        return AppColors.purple4;
+        return AppColors.lowImportance;
       case ImportanceLevel.medium:
-        return AppColors.primary;
+        return AppColors.mediumImportance;
       case ImportanceLevel.high:
-        return AppColors.purple6;
+        return AppColors.highImportance;
       case ImportanceLevel.critical:
-        return AppColors.purple7;
+        return AppColors.criticalImportance;
     }
   }
 

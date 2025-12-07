@@ -64,8 +64,10 @@ class LocalRadioGroupItem<T> extends StatelessWidget {
           if (secondary != null) secondary!,
           Radio<bool>(
             value: true,
-            groupValue: selected ? true : false,
-            onChanged: onChanged,
+            groupValue: selected
+                ? true
+                : false, // ignore: deprecated_member_use
+            onChanged: onChanged, // ignore: deprecated_member_use
           ),
         ],
       ),

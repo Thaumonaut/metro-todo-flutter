@@ -8,6 +8,7 @@ import '../../../../data/models/importance_level.dart';
 import '../../../../data/models/task_status.dart';
 import '../../../../core/providers/preferences_providers.dart';
 import '../../providers/recurring_providers.dart';
+import '../../../tasks/presentation/widgets/importance_selector.dart';
 import '../widgets/recurrence_pattern_selector.dart';
 
 /// Form page for creating or editing recurring tasks
@@ -130,16 +131,11 @@ class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
             const SizedBox(height: 24),
 
             // Importance
-            Text('Importance', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            SegmentedButton<ImportanceLevel>(
-              segments: ImportanceLevel.values.map((level) {
-                return ButtonSegment(value: level, label: Text(level.label));
-              }).toList(),
-              selected: {_importance},
-              onSelectionChanged: (Set<ImportanceLevel> selection) {
+            ImportanceSelector(
+              selectedImportance: _importance,
+              onImportanceChanged: (importance) {
                 setState(() {
-                  _importance = selection.first;
+                  _importance = importance;
                 });
               },
             ),

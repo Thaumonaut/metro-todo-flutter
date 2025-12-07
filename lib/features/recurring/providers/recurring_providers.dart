@@ -84,7 +84,6 @@ final createRecurringTaskProvider =
           type: RecurrenceType.values.byName(
             pattern.type.toString().split('.').last,
           ), // handle 'RecurrenceType.daily' or 'daily'
-
           // Actually pattern.type in RecurringPattern (Drift) is Enum or String?
           // In database.dart: text().map(const RecurrenceTypeConverter())
           // Wait, if I used Converter, it should be the Enum type in the generated class.
@@ -102,7 +101,7 @@ final createRecurringTaskProvider =
           // But if pattern is ALREADY Drift class, `pattern.type` is whatever Drift generated.
           // If it is String, then:
           // type: RecurrenceType.values.byName(pattern.type),
-          interval: pattern.interval ?? 1,
+          interval: pattern.interval,
           daysOfWeek: pattern.daysOfWeek?.split(',').map(int.parse).toList(),
           daysOfMonth: pattern.daysOfMonth?.split(',').map(int.parse).toList(),
           lastDayOfMonth: pattern.lastDayOfMonth ?? false,

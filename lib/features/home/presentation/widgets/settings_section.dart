@@ -36,41 +36,44 @@ class SettingsSection extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // Preferences group
-          _buildSettingsGroup(
-            context,
-            'Preferences',
-            [
-              SettingsItem(
-                title: 'Theme',
-                subtitle: _getThemeModeLabel(preferences.themeMode),
-                icon: Icons.palette,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ThemeSettingsPage(),
-                    ),
-                  );
-                },
-              ),
-              SettingsItem(
-                title: 'Notifications',
-                subtitle: preferences.notificationsEnabled ? 'Enabled' : 'Disabled',
-                icon: Icons.notifications,
-                onTap: () {
-                  // TODO: Implement notification settings
-                  // HINT: You'll need to create a notifications settings page
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationSettingsPage()));
-                },
-              ),
-              SettingsItem(
-                title: 'Default Importance',
-                subtitle: preferences.defaultImportance.label,
-                icon: Icons.flag,
-                onTap: () => _showDefaultImportanceDialog(context, ref),
-              ),
-            ],
-          ),
+          _buildSettingsGroup(context, 'Preferences', [
+            SettingsItem(
+              title: 'Theme',
+              subtitle: _getThemeModeLabel(preferences.themeMode),
+              icon: Icons.palette,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ThemeSettingsPage(),
+                  ),
+                );
+              },
+            ),
+            SettingsItem(
+              title: 'Notifications',
+              subtitle: preferences.notificationsEnabled
+                  ? 'Enabled'
+                  : 'Disabled',
+              icon: Icons.notifications,
+              onTap: () {
+                // TODO: Implement notification settings
+                // HINT: You'll need to create a notifications settings page
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationSettingsPage(),
+                  ),
+                );
+              },
+            ),
+            SettingsItem(
+              title: 'Default Importance',
+              subtitle: preferences.defaultImportance.label,
+              icon: Icons.flag,
+              onTap: () => _showDefaultImportanceDialog(context, ref),
+            ),
+          ]),
 
           const SizedBox(height: 24),
 
@@ -108,34 +111,29 @@ class SettingsSection extends ConsumerWidget {
           //     ),
           //   ],
           // ),
-
           const SizedBox(height: 24),
 
           // About group
-          _buildSettingsGroup(
-            context,
-            'About',
-            [
-              SettingsItem(
-                title: 'Version',
-                subtitle: '1.0.0',
-                icon: Icons.info,
-                onTap: () {
-                  // TODO: Implement about/version info
-                  // HINT: You could show a dialog with app version and credits
-                },
-              ),
-              SettingsItem(
-                title: 'Help & Support',
-                subtitle: 'Get help using the app',
-                icon: Icons.help,
-                onTap: () {
-                  // TODO: Implement help & support page
-                  // HINT: You could navigate to a help page or open external URL
-                },
-              ),
-            ],
-          ),
+          _buildSettingsGroup(context, 'About', [
+            SettingsItem(
+              title: 'Version',
+              subtitle: '1.0.0',
+              icon: Icons.info,
+              onTap: () {
+                // TODO: Implement about/version info
+                // HINT: You could show a dialog with app version and credits
+              },
+            ),
+            SettingsItem(
+              title: 'Help & Support',
+              subtitle: 'Get help using the app',
+              icon: Icons.help,
+              onTap: () {
+                // TODO: Implement help & support page
+                // HINT: You could navigate to a help page or open external URL
+              },
+            ),
+          ]),
 
           const SizedBox(height: 24),
         ],
@@ -144,7 +142,11 @@ class SettingsSection extends ConsumerWidget {
   }
 
   /// Builds a group of settings items with a title
-  Widget _buildSettingsGroup(BuildContext context, String title, List<SettingsItem> items) {
+  Widget _buildSettingsGroup(
+    BuildContext context,
+    String title,
+    List<SettingsItem> items,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -161,10 +163,12 @@ class SettingsSection extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...items.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildSettingsItemWidget(context, item),
-            )),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildSettingsItemWidget(context, item),
+          ),
+        ),
       ],
     );
   }
@@ -192,13 +196,17 @@ class SettingsSection extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: item.isDestructive
                     ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
-                    : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    : Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 item.icon,
                 size: 20,
-                color: item.isDestructive ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+                color: item.isDestructive
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(width: 16),
@@ -233,7 +241,9 @@ class SettingsSection extends ConsumerWidget {
             // Chevron icon
             Icon(
               Icons.chevron_right,
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               size: 20,
             ),
           ],
@@ -256,26 +266,28 @@ class SettingsSection extends ConsumerWidget {
 
   /// Show dialog to select default importance
   void _showDefaultImportanceDialog(BuildContext context, WidgetRef ref) {
-    final currentImportance = ref.read(appPreferencesProvider).defaultImportance;
+    final currentImportance = ref
+        .read(appPreferencesProvider)
+        .defaultImportance;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          'Default Importance',
-          style: AppTypography.h3,
-        ),
+        title: Text('Default Importance', style: AppTypography.h3),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ...ImportanceLevel.values.map((importance) {
               return RadioListTile<ImportanceLevel>(
                 value: importance,
-                groupValue: currentImportance,
+                groupValue: currentImportance, // ignore: deprecated_member_use
                 title: Text(importance.label),
                 onChanged: (v) {
+                  // ignore: deprecated_member_use
                   if (v != null) {
-                    ref.read(appPreferencesProvider.notifier).setDefaultImportance(v);
+                    ref
+                        .read(appPreferencesProvider.notifier)
+                        .setDefaultImportance(v);
                     Navigator.pop(context);
                   }
                 },

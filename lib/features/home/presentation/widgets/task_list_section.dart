@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../../../data/models/importance_level.dart';
+import '../../../../data/models/task_status.dart';
 import '../../../../data/providers/repository_providers.dart';
 import '../../../tasks/presentation/widgets/bulk_action_bar.dart';
 import 'task_summary_card.dart';
@@ -22,6 +23,8 @@ class TaskListSection extends ConsumerStatefulWidget {
     this.onTaskComplete,
     this.onTaskDelete,
     this.onTaskImportanceChange,
+    this.onTaskStatusChange,
+    this.onAddTask,
   });
 
   final String title;
@@ -34,6 +37,12 @@ class TaskListSection extends ConsumerStatefulWidget {
   final void Function(TodoTask task)? onTaskDelete;
   final void Function(TodoTask task, ImportanceLevel importance)?
   onTaskImportanceChange;
+
+  /// Callback when a task's status is changed
+  final void Function(TodoTask task, TaskStatus status)? onTaskStatusChange;
+
+  /// Callback to add a new task
+  final VoidCallback? onAddTask;
 
   @override
   ConsumerState<TaskListSection> createState() => _TaskListSectionState();
@@ -153,7 +162,7 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                  if (tasks.isNotEmpty)
+                  if (tasks.isNotEmpty || widget.onAddTask != null)
                     Row(
                       children: [
                         if (_isSelectionMode) ...[
@@ -161,16 +170,24 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
                             onPressed: () => _selectAll(tasks),
                             child: const Text('Select All'),
                           ),
-                        ],
-                        IconButton(
-                          icon: Icon(
-                            _isSelectionMode ? Icons.close : Icons.checklist,
+                        ] else if (widget.onAddTask != null) ...[
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: widget.onAddTask,
+                            tooltip: 'Add Task',
                           ),
-                          onPressed: _toggleSelectionMode,
-                          tooltip: _isSelectionMode
-                              ? 'Cancel'
-                              : 'Select multiple',
-                        ),
+                          if (tasks.isNotEmpty) const SizedBox(width: 8),
+                        ],
+                        if (tasks.isNotEmpty)
+                          IconButton(
+                            icon: Icon(
+                              _isSelectionMode ? Icons.close : Icons.checklist,
+                            ),
+                            onPressed: _toggleSelectionMode,
+                            tooltip: _isSelectionMode
+                                ? 'Cancel'
+                                : 'Select multiple',
+                          ),
                       ],
                     ),
                 ],
@@ -294,93 +311,38 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
                 });
               }
             },
-            child: Stack(
-              children: [
-                TaskSummaryCard(
-                  task: task,
-                  width: widget.width - 48 - (_isSelectionMode ? 40 : 0),
-                  onEdit: _isSelectionMode
-                      ? null
-                      : (widget.onTaskEdit != null
-                            ? () => widget.onTaskEdit!(task)
-                            : null),
-                  onComplete: _isSelectionMode
-                      ? null
-                      : (widget.onTaskComplete != null
-                            ? () => widget.onTaskComplete!(task)
-                            : null),
-                  onDelete: _isSelectionMode
-                      ? null
-                      : (widget.onTaskDelete != null
-                            ? () => widget.onTaskDelete!(task)
-                            : null),
-                  onImportanceChange: _isSelectionMode
-                      ? null
-                      : (widget.onTaskImportanceChange != null
-                            ? (importance) => widget.onTaskImportanceChange!(
-                                task,
-                                importance,
-                              )
-                            : null),
-                ),
-                if (_isSelectionMode)
-                  Positioned.fill(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => _toggleTaskSelection(task),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withValues(alpha: 0.1)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            border: isSelected
-                                ? Border.all(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    width: 2,
-                                  )
-                                : null,
-                          ),
-                          child: Align(
-                            alignment: Alignment.topRight,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isSelected
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.surface,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? Theme.of(context).colorScheme.primary
-                                        : AppColors.textHint,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: isSelected
-                                    ? const Icon(
-                                        Icons.check,
-                                        size: 16,
-                                        color: Colors.white,
-                                      )
-                                    : null,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            onTap: _isSelectionMode ? () => _toggleTaskSelection(task) : null,
+            child: TaskSummaryCard(
+              task: task,
+              width: widget.width - 48,
+              isSelectionMode: _isSelectionMode,
+              isSelected: isSelected,
+              onEdit: _isSelectionMode
+                  ? null
+                  : (widget.onTaskEdit != null
+                        ? () => widget.onTaskEdit!(task)
+                        : null),
+              onComplete: _isSelectionMode
+                  ? null
+                  : (widget.onTaskComplete != null
+                        ? () => widget.onTaskComplete!(task)
+                        : null),
+              onDelete: _isSelectionMode
+                  ? null
+                  : (widget.onTaskDelete != null
+                        ? () => widget.onTaskDelete!(task)
+                        : null),
+              onImportanceChange: _isSelectionMode
+                  ? null
+                  : (widget.onTaskImportanceChange != null
+                        ? (importance) =>
+                              widget.onTaskImportanceChange!(task, importance)
+                        : null),
+              onStatusChange: _isSelectionMode
+                  ? null
+                  : (widget.onTaskStatusChange != null
+                        ? (status) => widget.onTaskStatusChange!(task, status)
+                        : null),
             ),
           ),
         );

@@ -4,6 +4,7 @@ import '../../../data/models/task_tag.dart';
 import '../../../data/models/importance_level.dart';
 import '../../../data/models/task_status.dart';
 import '../../../data/providers/repository_providers.dart';
+import '../../../data/database/database.dart'; // Import for TaskReminder
 
 /// Provider for watching a specific task by UUID
 final watchTaskProvider = StreamProvider.family<TodoTask?, String>((ref, uuid) {
@@ -38,6 +39,13 @@ final watchTaskByIdProvider = StreamProvider.family<TodoTask?, int>((
   }
 });
 
+/// Provider for watching reminders for a specific task
+final watchTaskRemindersProvider =
+    StreamProvider.family<List<TaskReminder>, int>((ref, taskId) {
+      final todoRepo = ref.watch(todoRepositoryProvider);
+      return todoRepo.watchReminders(taskId);
+    });
+
 /// Provider for creating a new task
 final createTaskProvider =
     Provider<
@@ -47,6 +55,7 @@ final createTaskProvider =
         required ImportanceLevel importance,
         TaskStatus status,
         DateTime? dueDate,
+        List<DateTime>? reminders,
         List<int>? tagIds, // Changed from List<TaskTag> to IDs to match repo
       })
     >((ref) {
@@ -57,6 +66,7 @@ final createTaskProvider =
         required ImportanceLevel importance,
         TaskStatus status = TaskStatus.notStarted,
         DateTime? dueDate,
+        List<DateTime>? reminders,
         List<int>? tagIds,
       }) async {
         final id = await todoRepo.createTodo(
@@ -65,6 +75,7 @@ final createTaskProvider =
           importance: importance,
           status: status,
           dueDate: dueDate,
+          reminders: reminders,
           tagIds: tagIds,
         );
         final task = await todoRepo.getTodoById(id);
@@ -87,6 +98,7 @@ final updateTaskProvider = Provider<Future<void> Function(TodoTask)>((ref) {
         ? TaskStatus.values.byName(task.status)
         : null,
     dueDate: task.dueDate,
+    reminderDateTime: task.reminderDateTime,
     isCompleted: task.isCompleted,
     completedAt: task.completedAt,
     isDueToday: task.isDueToday,
@@ -128,6 +140,21 @@ final removeTagFromTaskProvider =
       return (TodoTask task, TaskTag tag) =>
           todoRepo.removeTagFromTodo(task.id, tag.id);
     });
+
+/// Provider for adding a reminder
+final addReminderProvider = Provider<Future<void> Function(int, DateTime)>((
+  ref,
+) {
+  final todoRepo = ref.watch(todoRepositoryProvider);
+  return (int taskId, DateTime scheduledAt) =>
+      todoRepo.addReminder(taskId, scheduledAt);
+});
+
+/// Provider for removing a reminder
+final removeReminderProvider = Provider<Future<void> Function(int)>((ref) {
+  final todoRepo = ref.watch(todoRepositoryProvider);
+  return (int reminderId) => todoRepo.removeReminder(reminderId);
+});
 
 /// Provider for watching all tags (for tag selector)
 final watchAllTagsProvider = StreamProvider<List<TaskTag>>((ref) {

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/recurring_pattern.dart';
-import '../../../../shared/widgets/metro_button.dart';
-import '../../../../shared/widgets/metro_button.dart';
 
 class RecurrencePatternSelector extends StatefulWidget {
   const RecurrencePatternSelector({
@@ -112,12 +110,12 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
       widget.onChanged(false, null);
       return;
     }
+    final pattern = _createPatternFromState();
+    widget.onChanged(true, pattern);
+  }
 
-    // Create new RecurringPattern object
-    // Note: ID is auto-increment, we can use 0 for temporary object or unsaved object.
-    // The createRecurringTask provider will assume it's data to be inserted.
-
-    final pattern = RecurringPattern(
+  RecurringPattern _createPatternFromState() {
+    return RecurringPattern(
       id: 0, // Placeholder
       type: _type.name,
       interval: _interval,
@@ -131,7 +129,7 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
           ? _daysOfMonth.join(',')
           : null,
       lastDayOfMonth: _type == RecurrenceType.monthly ? _lastDayOfMonth : false,
-      nthWeekday: null, // Simplification for now
+      nthWeekday: null,
       weekdayOfMonth: null,
       monthOfYear: null,
       dayOfYear: null,
@@ -141,8 +139,6 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
       isActive: true,
       createdAt: DateTime.now(),
     );
-
-    widget.onChanged(true, pattern);
   }
 
   @override
@@ -157,11 +153,9 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
               onChanged: (value) {
                 if (value == true) {
                   // Default to daily if enabling
-                  widget.onChanged(true, widget.pattern);
-                  // Trigger update to create initial pattern if null
-                  if (widget.pattern == null) {
-                    Future.microtask(_updatePattern);
-                  }
+                  // Generate initial pattern immediately from default state
+                  final pattern = _createPatternFromState();
+                  widget.onChanged(true, pattern);
                 } else {
                   widget.onChanged(false, null);
                 }
@@ -190,8 +184,20 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
                   children: RecurrenceType.values.map((type) {
                     final isSelected = type == _type;
                     return ChoiceChip(
-                      label: Text(type.name.toUpperCase()),
+                      label: Text(
+                        type.name.toUpperCase(),
+                        style: TextStyle(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.onSurface,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
                       selected: isSelected,
+                      selectedColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.surface,
                       onSelected: (selected) {
                         if (selected) {
                           setState(() {
@@ -304,8 +310,9 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
         RadioListTile<bool>(
           title: const Text('On the last day of the month'),
           value: true,
-          groupValue: _lastDayOfMonth,
+          groupValue: _lastDayOfMonth, // ignore: deprecated_member_use
           onChanged: (val) {
+            // ignore: deprecated_member_use
             setState(() {
               _lastDayOfMonth = true;
               _daysOfMonth.clear();

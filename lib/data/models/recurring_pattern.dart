@@ -1,5 +1,3 @@
-import '../database/database.dart' as drift;
-
 // Export the Drift-generated class
 export '../database/database.dart' show RecurringPattern;
 

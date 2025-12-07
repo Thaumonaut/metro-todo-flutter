@@ -152,8 +152,8 @@ class TagRepository {
   Future<bool> updateTagColor(int tagId, Color newColor) async {
     return await updateTag(
       tagId,
-      colorValue: newColor.value,
-    ); // ignore: deprecated_member_use
+      colorValue: newColor.value, // ignore: deprecated_member_use
+    );
   }
 
   /// Update tag icon

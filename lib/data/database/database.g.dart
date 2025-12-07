@@ -53,6 +53,12 @@ class $TodoTasksTable extends TodoTasks
   late final GeneratedColumn<DateTime> dueDate = GeneratedColumn<DateTime>(
       'due_date', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _reminderDateTimeMeta =
+      const VerificationMeta('reminderDateTime');
+  @override
+  late final GeneratedColumn<DateTime> reminderDateTime =
+      GeneratedColumn<DateTime>('reminder_date_time', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -168,6 +174,7 @@ class $TodoTasksTable extends TodoTasks
         importance,
         status,
         dueDate,
+        reminderDateTime,
         createdAt,
         completedAt,
         isCompleted,
@@ -230,6 +237,12 @@ class $TodoTasksTable extends TodoTasks
     if (data.containsKey('due_date')) {
       context.handle(_dueDateMeta,
           dueDate.isAcceptableOrUnknown(data['due_date']!, _dueDateMeta));
+    }
+    if (data.containsKey('reminder_date_time')) {
+      context.handle(
+          _reminderDateTimeMeta,
+          reminderDateTime.isAcceptableOrUnknown(
+              data['reminder_date_time']!, _reminderDateTimeMeta));
     }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
@@ -329,6 +342,8 @@ class $TodoTasksTable extends TodoTasks
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
       dueDate: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}due_date']),
+      reminderDateTime: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}reminder_date_time']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       completedAt: attachedDatabase.typeMapping
@@ -374,6 +389,7 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
   final String importance;
   final String status;
   final DateTime? dueDate;
+  final DateTime? reminderDateTime;
   final DateTime createdAt;
   final DateTime? completedAt;
   final bool isCompleted;
@@ -395,6 +411,7 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
       required this.importance,
       required this.status,
       this.dueDate,
+      this.reminderDateTime,
       required this.createdAt,
       this.completedAt,
       required this.isCompleted,
@@ -421,6 +438,9 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || dueDate != null) {
       map['due_date'] = Variable<DateTime>(dueDate);
+    }
+    if (!nullToAbsent || reminderDateTime != null) {
+      map['reminder_date_time'] = Variable<DateTime>(reminderDateTime);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || completedAt != null) {
@@ -462,6 +482,9 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
       dueDate: dueDate == null && nullToAbsent
           ? const Value.absent()
           : Value(dueDate),
+      reminderDateTime: reminderDateTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderDateTime),
       createdAt: Value(createdAt),
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
@@ -499,6 +522,8 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
       importance: serializer.fromJson<String>(json['importance']),
       status: serializer.fromJson<String>(json['status']),
       dueDate: serializer.fromJson<DateTime?>(json['dueDate']),
+      reminderDateTime:
+          serializer.fromJson<DateTime?>(json['reminderDateTime']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
@@ -530,6 +555,7 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
       'importance': serializer.toJson<String>(importance),
       'status': serializer.toJson<String>(status),
       'dueDate': serializer.toJson<DateTime?>(dueDate),
+      'reminderDateTime': serializer.toJson<DateTime?>(reminderDateTime),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'isCompleted': serializer.toJson<bool>(isCompleted),
@@ -556,6 +582,7 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
           String? importance,
           String? status,
           Value<DateTime?> dueDate = const Value.absent(),
+          Value<DateTime?> reminderDateTime = const Value.absent(),
           DateTime? createdAt,
           Value<DateTime?> completedAt = const Value.absent(),
           bool? isCompleted,
@@ -577,6 +604,9 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
         importance: importance ?? this.importance,
         status: status ?? this.status,
         dueDate: dueDate.present ? dueDate.value : this.dueDate,
+        reminderDateTime: reminderDateTime.present
+            ? reminderDateTime.value
+            : this.reminderDateTime,
         createdAt: createdAt ?? this.createdAt,
         completedAt: completedAt.present ? completedAt.value : this.completedAt,
         isCompleted: isCompleted ?? this.isCompleted,
@@ -609,6 +639,7 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
           ..write('importance: $importance, ')
           ..write('status: $status, ')
           ..write('dueDate: $dueDate, ')
+          ..write('reminderDateTime: $reminderDateTime, ')
           ..write('createdAt: $createdAt, ')
           ..write('completedAt: $completedAt, ')
           ..write('isCompleted: $isCompleted, ')
@@ -627,27 +658,29 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
   }
 
   @override
-  int get hashCode => Object.hash(
-      id,
-      uuid,
-      title,
-      description,
-      importance,
-      status,
-      dueDate,
-      createdAt,
-      completedAt,
-      isCompleted,
-      isDueToday,
-      isOverdue,
-      isRecurring,
-      isRecurringTemplate,
-      recurringPatternId,
-      recurringSeriesId,
-      recurringOriginalDate,
-      recurringInstanceNumber,
-      isRecurringException,
-      isSkipped);
+  int get hashCode => Object.hashAll([
+        id,
+        uuid,
+        title,
+        description,
+        importance,
+        status,
+        dueDate,
+        reminderDateTime,
+        createdAt,
+        completedAt,
+        isCompleted,
+        isDueToday,
+        isOverdue,
+        isRecurring,
+        isRecurringTemplate,
+        recurringPatternId,
+        recurringSeriesId,
+        recurringOriginalDate,
+        recurringInstanceNumber,
+        isRecurringException,
+        isSkipped
+      ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -659,6 +692,7 @@ class TodoTask extends DataClass implements Insertable<TodoTask> {
           other.importance == this.importance &&
           other.status == this.status &&
           other.dueDate == this.dueDate &&
+          other.reminderDateTime == this.reminderDateTime &&
           other.createdAt == this.createdAt &&
           other.completedAt == this.completedAt &&
           other.isCompleted == this.isCompleted &&
@@ -682,6 +716,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
   final Value<String> importance;
   final Value<String> status;
   final Value<DateTime?> dueDate;
+  final Value<DateTime?> reminderDateTime;
   final Value<DateTime> createdAt;
   final Value<DateTime?> completedAt;
   final Value<bool> isCompleted;
@@ -703,6 +738,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
     this.importance = const Value.absent(),
     this.status = const Value.absent(),
     this.dueDate = const Value.absent(),
+    this.reminderDateTime = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.isCompleted = const Value.absent(),
@@ -725,6 +761,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
     required String importance,
     required String status,
     this.dueDate = const Value.absent(),
+    this.reminderDateTime = const Value.absent(),
     required DateTime createdAt,
     this.completedAt = const Value.absent(),
     this.isCompleted = const Value.absent(),
@@ -751,6 +788,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
     Expression<String>? importance,
     Expression<String>? status,
     Expression<DateTime>? dueDate,
+    Expression<DateTime>? reminderDateTime,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? completedAt,
     Expression<bool>? isCompleted,
@@ -773,6 +811,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
       if (importance != null) 'importance': importance,
       if (status != null) 'status': status,
       if (dueDate != null) 'due_date': dueDate,
+      if (reminderDateTime != null) 'reminder_date_time': reminderDateTime,
       if (createdAt != null) 'created_at': createdAt,
       if (completedAt != null) 'completed_at': completedAt,
       if (isCompleted != null) 'is_completed': isCompleted,
@@ -802,6 +841,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
       Value<String>? importance,
       Value<String>? status,
       Value<DateTime?>? dueDate,
+      Value<DateTime?>? reminderDateTime,
       Value<DateTime>? createdAt,
       Value<DateTime?>? completedAt,
       Value<bool>? isCompleted,
@@ -823,6 +863,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
       importance: importance ?? this.importance,
       status: status ?? this.status,
       dueDate: dueDate ?? this.dueDate,
+      reminderDateTime: reminderDateTime ?? this.reminderDateTime,
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
       isCompleted: isCompleted ?? this.isCompleted,
@@ -864,6 +905,9 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
     }
     if (dueDate.present) {
       map['due_date'] = Variable<DateTime>(dueDate.value);
+    }
+    if (reminderDateTime.present) {
+      map['reminder_date_time'] = Variable<DateTime>(reminderDateTime.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -920,6 +964,7 @@ class TodoTasksCompanion extends UpdateCompanion<TodoTask> {
           ..write('importance: $importance, ')
           ..write('status: $status, ')
           ..write('dueDate: $dueDate, ')
+          ..write('reminderDateTime: $reminderDateTime, ')
           ..write('createdAt: $createdAt, ')
           ..write('completedAt: $completedAt, ')
           ..write('isCompleted: $isCompleted, ')
@@ -2553,6 +2598,298 @@ class RecurringCompletionsCompanion
   }
 }
 
+class $TaskRemindersTable extends TaskReminders
+    with TableInfo<$TaskRemindersTable, TaskReminder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TaskRemindersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<int> taskId = GeneratedColumn<int>(
+      'task_id', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES todo_tasks (id) ON DELETE CASCADE'));
+  static const VerificationMeta _scheduledAtMeta =
+      const VerificationMeta('scheduledAt');
+  @override
+  late final GeneratedColumn<DateTime> scheduledAt = GeneratedColumn<DateTime>(
+      'scheduled_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _isSentMeta = const VerificationMeta('isSent');
+  @override
+  late final GeneratedColumn<bool> isSent = GeneratedColumn<bool>(
+      'is_sent', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_sent" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, taskId, scheduledAt, isSent, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'task_reminders';
+  @override
+  VerificationContext validateIntegrity(Insertable<TaskReminder> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('task_id')) {
+      context.handle(_taskIdMeta,
+          taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta));
+    } else if (isInserting) {
+      context.missing(_taskIdMeta);
+    }
+    if (data.containsKey('scheduled_at')) {
+      context.handle(
+          _scheduledAtMeta,
+          scheduledAt.isAcceptableOrUnknown(
+              data['scheduled_at']!, _scheduledAtMeta));
+    } else if (isInserting) {
+      context.missing(_scheduledAtMeta);
+    }
+    if (data.containsKey('is_sent')) {
+      context.handle(_isSentMeta,
+          isSent.isAcceptableOrUnknown(data['is_sent']!, _isSentMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TaskReminder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TaskReminder(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      taskId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}task_id'])!,
+      scheduledAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}scheduled_at'])!,
+      isSent: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_sent'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $TaskRemindersTable createAlias(String alias) {
+    return $TaskRemindersTable(attachedDatabase, alias);
+  }
+}
+
+class TaskReminder extends DataClass implements Insertable<TaskReminder> {
+  final int id;
+  final int taskId;
+  final DateTime scheduledAt;
+  final bool isSent;
+  final DateTime createdAt;
+  const TaskReminder(
+      {required this.id,
+      required this.taskId,
+      required this.scheduledAt,
+      required this.isSent,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['task_id'] = Variable<int>(taskId);
+    map['scheduled_at'] = Variable<DateTime>(scheduledAt);
+    map['is_sent'] = Variable<bool>(isSent);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  TaskRemindersCompanion toCompanion(bool nullToAbsent) {
+    return TaskRemindersCompanion(
+      id: Value(id),
+      taskId: Value(taskId),
+      scheduledAt: Value(scheduledAt),
+      isSent: Value(isSent),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory TaskReminder.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TaskReminder(
+      id: serializer.fromJson<int>(json['id']),
+      taskId: serializer.fromJson<int>(json['taskId']),
+      scheduledAt: serializer.fromJson<DateTime>(json['scheduledAt']),
+      isSent: serializer.fromJson<bool>(json['isSent']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'taskId': serializer.toJson<int>(taskId),
+      'scheduledAt': serializer.toJson<DateTime>(scheduledAt),
+      'isSent': serializer.toJson<bool>(isSent),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  TaskReminder copyWith(
+          {int? id,
+          int? taskId,
+          DateTime? scheduledAt,
+          bool? isSent,
+          DateTime? createdAt}) =>
+      TaskReminder(
+        id: id ?? this.id,
+        taskId: taskId ?? this.taskId,
+        scheduledAt: scheduledAt ?? this.scheduledAt,
+        isSent: isSent ?? this.isSent,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  @override
+  String toString() {
+    return (StringBuffer('TaskReminder(')
+          ..write('id: $id, ')
+          ..write('taskId: $taskId, ')
+          ..write('scheduledAt: $scheduledAt, ')
+          ..write('isSent: $isSent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, taskId, scheduledAt, isSent, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TaskReminder &&
+          other.id == this.id &&
+          other.taskId == this.taskId &&
+          other.scheduledAt == this.scheduledAt &&
+          other.isSent == this.isSent &&
+          other.createdAt == this.createdAt);
+}
+
+class TaskRemindersCompanion extends UpdateCompanion<TaskReminder> {
+  final Value<int> id;
+  final Value<int> taskId;
+  final Value<DateTime> scheduledAt;
+  final Value<bool> isSent;
+  final Value<DateTime> createdAt;
+  const TaskRemindersCompanion({
+    this.id = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.scheduledAt = const Value.absent(),
+    this.isSent = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  TaskRemindersCompanion.insert({
+    this.id = const Value.absent(),
+    required int taskId,
+    required DateTime scheduledAt,
+    this.isSent = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : taskId = Value(taskId),
+        scheduledAt = Value(scheduledAt);
+  static Insertable<TaskReminder> custom({
+    Expression<int>? id,
+    Expression<int>? taskId,
+    Expression<DateTime>? scheduledAt,
+    Expression<bool>? isSent,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (taskId != null) 'task_id': taskId,
+      if (scheduledAt != null) 'scheduled_at': scheduledAt,
+      if (isSent != null) 'is_sent': isSent,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  TaskRemindersCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? taskId,
+      Value<DateTime>? scheduledAt,
+      Value<bool>? isSent,
+      Value<DateTime>? createdAt}) {
+    return TaskRemindersCompanion(
+      id: id ?? this.id,
+      taskId: taskId ?? this.taskId,
+      scheduledAt: scheduledAt ?? this.scheduledAt,
+      isSent: isSent ?? this.isSent,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (taskId.present) {
+      map['task_id'] = Variable<int>(taskId.value);
+    }
+    if (scheduledAt.present) {
+      map['scheduled_at'] = Variable<DateTime>(scheduledAt.value);
+    }
+    if (isSent.present) {
+      map['is_sent'] = Variable<bool>(isSent.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TaskRemindersCompanion(')
+          ..write('id: $id, ')
+          ..write('taskId: $taskId, ')
+          ..write('scheduledAt: $scheduledAt, ')
+          ..write('isSent: $isSent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   late final $TodoTasksTable todoTasks = $TodoTasksTable(this);
@@ -2562,6 +2899,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $RecurringPatternsTable(this);
   late final $RecurringCompletionsTable recurringCompletions =
       $RecurringCompletionsTable(this);
+  late final $TaskRemindersTable taskReminders = $TaskRemindersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2571,7 +2909,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         taskTags,
         todoTaskTags,
         recurringPatterns,
-        recurringCompletions
+        recurringCompletions,
+        taskReminders
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -2588,6 +2927,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('todo_task_tags', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('todo_tasks',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('task_reminders', kind: UpdateKind.delete),
             ],
           ),
         ],

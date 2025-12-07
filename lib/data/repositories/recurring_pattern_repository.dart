@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../database/database.dart';
-import '../services/recurrence_service.dart'; // for RecurrenceType enum if moved there
+// for RecurrenceType enum if moved there
 // or just make sure RecurrenceType is available.
 // RecurrenceService defined RecurrenceType at bottom of file. Let's import it.
 
@@ -215,7 +215,6 @@ class RecurringPatternRepository {
       case RecurrenceType.custom:
         return true;
     }
-    return false;
   }
 
   /// Helper: Parse comma-separated string to list of ints

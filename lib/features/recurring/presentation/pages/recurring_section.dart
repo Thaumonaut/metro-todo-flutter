@@ -344,7 +344,8 @@ class RecurringSection extends ConsumerWidget {
   String _getPatternDescription(RecurringPattern pattern) {
     final interval = pattern.interval == 1 ? '' : '${pattern.interval} ';
 
-    switch (pattern.type) {
+    final type = RecurrenceType.values.byName(pattern.type);
+    switch (type) {
       case RecurrenceType.daily:
         final skip = pattern.skipWeekends ? ' (weekdays)' : '';
         return 'Every $interval${pattern.interval == 1 ? 'day' : 'days'}$skip';
@@ -405,7 +406,9 @@ class RecurringSection extends ConsumerWidget {
               title: const Text('View All Instances'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navigate to instances list
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('View instances coming soon')),
+                );
               },
             ),
             ListTile(

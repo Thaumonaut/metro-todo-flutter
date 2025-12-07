@@ -14,12 +14,14 @@ class TodoRepository {
   // CREATE
 
   /// Create a new todo task
+  /// Create a new todo task
   Future<int> createTodo({
     required String title,
     String? description,
     required ImportanceLevel importance,
     TaskStatus status = TaskStatus.notStarted,
     DateTime? dueDate,
+    List<DateTime>? reminders,
     List<int>? tagIds,
   }) async {
     final now = DateTime.now();
@@ -42,6 +44,22 @@ class TodoRepository {
     );
 
     final taskId = await _db.into(_db.todoTasks).insert(entry);
+
+    // Add reminders if provided
+    if (reminders != null && reminders.isNotEmpty) {
+      for (final date in reminders) {
+        await _db
+            .into(_db.taskReminders)
+            .insert(
+              TaskRemindersCompanion(
+                taskId: Value(taskId),
+                scheduledAt: Value(date),
+              ),
+            );
+      }
+      // Update the next reminder field
+      await _updateNextReminder(taskId);
+    }
 
     // Link tags if provided
     if (tagIds != null && tagIds.isNotEmpty) {
@@ -172,12 +190,16 @@ class TodoRepository {
     ImportanceLevel? importance,
     TaskStatus? status,
     DateTime? dueDate,
+    List<DateTime>? reminders, // Replaces existing reminders if provided
+    DateTime?
+    reminderDateTime, // Optional: Update the cached next reminder directly
     bool? isCompleted,
     DateTime? completedAt,
     bool? isDueToday,
     bool? isOverdue,
   }) async {
-    return (await (_db.update(
+    final success =
+        await (_db.update(
           _db.todoTasks,
         )..where((tbl) => tbl.id.equals(id))).write(
           TodoTasksCompanion(
@@ -190,6 +212,9 @@ class TodoRepository {
                 : const Value.absent(),
             status: status != null ? Value(status.name) : const Value.absent(),
             dueDate: dueDate != null ? Value(dueDate) : const Value.absent(),
+            reminderDateTime: reminderDateTime != null
+                ? Value(reminderDateTime)
+                : const Value.absent(),
             isCompleted: isCompleted != null
                 ? Value(isCompleted)
                 : const Value.absent(),
@@ -203,8 +228,90 @@ class TodoRepository {
                 ? Value(isOverdue)
                 : const Value.absent(),
           ),
-        )) >
+        ) >
         0;
+
+    if (reminders != null) {
+      // Delete existing reminders
+      await (_db.delete(
+        _db.taskReminders,
+      )..where((tbl) => tbl.taskId.equals(id))).go();
+
+      // Add new ones
+      for (final date in reminders) {
+        await _db
+            .into(_db.taskReminders)
+            .insert(
+              TaskRemindersCompanion(
+                taskId: Value(id),
+                scheduledAt: Value(date),
+              ),
+            );
+      }
+      // Update next reminder
+      await _updateNextReminder(id);
+    }
+
+    return success;
+  }
+
+  // REMINDERS
+
+  /// Get reminders for a task
+  Future<List<TaskReminder>> getReminders(int taskId) async {
+    return await (_db.select(_db.taskReminders)
+          ..where((tbl) => tbl.taskId.equals(taskId))
+          ..orderBy([(t) => OrderingTerm(expression: t.scheduledAt)]))
+        .get();
+  }
+
+  /// Watch reminders for a task
+  Stream<List<TaskReminder>> watchReminders(int taskId) {
+    return (_db.select(_db.taskReminders)
+          ..where((tbl) => tbl.taskId.equals(taskId))
+          ..orderBy([(t) => OrderingTerm(expression: t.scheduledAt)]))
+        .watch();
+  }
+
+  /// Add a reminder
+  Future<void> addReminder(int taskId, DateTime scheduledAt) async {
+    await _db
+        .into(_db.taskReminders)
+        .insert(
+          TaskRemindersCompanion(
+            taskId: Value(taskId),
+            scheduledAt: Value(scheduledAt),
+          ),
+        );
+    await _updateNextReminder(taskId);
+  }
+
+  /// Remove a reminder
+  Future<void> removeReminder(int reminderId) async {
+    final reminder = await (_db.select(
+      _db.taskReminders,
+    )..where((tbl) => tbl.id.equals(reminderId))).getSingleOrNull();
+
+    if (reminder != null) {
+      await _db.delete(_db.taskReminders).delete(reminder);
+      await _updateNextReminder(reminder.taskId);
+    }
+  }
+
+  /// Update the legacy/cache `reminderDateTime` field on the task
+  Future<void> _updateNextReminder(int taskId) async {
+    final reminders = await getReminders(taskId);
+    final now = DateTime.now();
+    final upcoming = reminders
+        .where((r) => r.scheduledAt.isAfter(now))
+        .toList();
+    // Already sorted by query, but ensure
+    upcoming.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+
+    final next = upcoming.isNotEmpty ? upcoming.first.scheduledAt : null;
+
+    // We avoid infinite loop by calling updateTodo WITHOUT reminders list
+    await updateTodo(taskId, reminderDateTime: next);
   }
 
   /// Mark a todo as completed

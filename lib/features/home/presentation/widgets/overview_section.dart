@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../../../data/models/importance_level.dart';
+import '../../../../data/models/task_status.dart';
 import '../../../../data/providers/repository_providers.dart';
 import '../../providers/home_providers.dart';
 import 'live_stats_tile.dart';
@@ -24,6 +25,7 @@ class OverviewSection extends ConsumerWidget {
     this.onTaskComplete,
     this.onTaskDelete,
     this.onTaskImportanceChange,
+    this.onTaskStatusChange,
   });
 
   /// Width of the screen (for card sizing)
@@ -51,7 +53,11 @@ class OverviewSection extends ConsumerWidget {
   final void Function(TodoTask task)? onTaskDelete;
 
   /// Callback when a task's importance is changed
-  final void Function(TodoTask task, ImportanceLevel importance)? onTaskImportanceChange;
+  final void Function(TodoTask task, ImportanceLevel importance)?
+  onTaskImportanceChange;
+
+  /// Callback when a task's status is changed
+  final void Function(TodoTask task, TaskStatus status)? onTaskStatusChange;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -203,7 +209,6 @@ class OverviewSection extends ConsumerWidget {
             ),
           ),
           const Spacer(), // Push quick actions to the right
-
           // Quick action buttons
           QuickActionIcon(
             icon: Icons.add,
@@ -242,11 +247,7 @@ class OverviewSection extends ConsumerWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 48,
-              color: AppColors.textHint,
-            ),
+            Icon(Icons.inbox_outlined, size: 48, color: AppColors.textHint),
             const SizedBox(height: 12),
             Text(
               'No tasks yet',
@@ -266,20 +267,48 @@ class OverviewSection extends ConsumerWidget {
   /// CURRENT BEHAVIOR: Displays up to 5 most recent tasks
   /// FUTURE ENHANCEMENT: Navigate to task detail when tapped
   ///
-  /// HINT: The onTaskEdit callback should be implemented in the parent widget
   Widget _buildRecentTasksList(List<TodoTask> tasks) {
+    final activeTasks = tasks.where((t) => !t.isCompleted).toList();
+
+    if (activeTasks.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 48,
+                color: AppColors.textHint,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No active tasks',
+                style: AppTypography.body1.copyWith(color: AppColors.textHint),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
-      children: tasks.take(5).map((task) {
+      children: activeTasks.take(5).map((task) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: TaskSummaryCard(
             task: task,
             width: width - 48,
             onEdit: onTaskEdit != null ? () => onTaskEdit!(task) : null,
-            onComplete: onTaskComplete != null ? () => onTaskComplete!(task) : null,
+            onComplete: onTaskComplete != null
+                ? () => onTaskComplete!(task)
+                : null,
             onDelete: onTaskDelete != null ? () => onTaskDelete!(task) : null,
             onImportanceChange: onTaskImportanceChange != null
                 ? (importance) => onTaskImportanceChange!(task, importance)
+                : null,
+            onStatusChange: onTaskStatusChange != null
+                ? (status) => onTaskStatusChange!(task, status)
                 : null,
           ),
         );

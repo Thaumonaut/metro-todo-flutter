@@ -1,10 +1,14 @@
+import 'dart:io';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:todo_project/features/tasks/presentation/pages/search_page.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../../../data/models/importance_level.dart';
+import '../../../../data/models/task_status.dart';
 import '../../../../data/providers/repository_providers.dart';
 import '../../providers/home_providers.dart';
 import '../controllers/home_controller.dart';
@@ -60,74 +64,101 @@ class _HomePageState extends ConsumerState<HomePage> {
     final completedTasksAsync = ref.watch(completedTasksProvider);
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // App header with navigation indicators
-            _buildHeader(),
-
-            // Panoramic horizontal scrolling sections
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
-                },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Custom Window Title Bar (Windows only) handled in main.dart
+          Expanded(
+            child: SafeArea(
+              top: !Platform.isWindows,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Section 1: Overview/Statistics
-                  OverviewSection(
-                    width: screenWidth,
-                    statsAsync: statsAsync,
-                    onNewTaskTap: () => _navigateToTaskForm(),
-                    onDueTodayTap: () => _showTodayTasksSheet(),
-                    onMoreTap: () => _showQuickActionsMenu(),
-                    onTaskEdit: (task) => _navigateToTaskDetail(task.id),
-                    onTaskComplete: (task) => _completeTask(task),
-                    onTaskDelete: (task) => _deleteTask(task),
-                    onTaskImportanceChange: (task, importance) =>
-                        _updateTaskImportance(task, importance),
+                  // App header with navigation indicators
+                  _buildHeader(),
+
+                  // Panoramic horizontal scrolling sections
+                  Expanded(
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(
+                        dragDevices: {
+                          PointerDeviceKind.touch,
+                          PointerDeviceKind.mouse,
+                        },
+                      ),
+                      child: PageView(
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentPage = index;
+                          });
+                        },
+                        children: [
+                          // Section 1: Overview/Statistics
+                          OverviewSection(
+                            width: screenWidth,
+                            statsAsync: statsAsync,
+                            onNewTaskTap: () => _navigateToTaskForm(),
+                            onDueTodayTap: () => _showTodayTasksSheet(),
+                            onMoreTap: () => _showQuickActionsMenu(),
+                            onTaskEdit: (task) =>
+                                _navigateToTaskDetail(task.id),
+                            onTaskComplete: (task) => _completeTask(task),
+                            onTaskDelete: (task) => _deleteTask(task),
+                            onTaskImportanceChange: (task, importance) =>
+                                _updateTaskImportance(task, importance),
+                            onTaskStatusChange: (task, status) =>
+                                _updateTaskStatus(task, status),
+                          ),
+
+                          // Section 2: All Tasks
+                          TaskListSection(
+                            title: 'All Tasks',
+                            tasksAsync: allTasksAsync,
+                            width: screenWidth,
+                            emptyStateIcon: Icons.check_circle_outline,
+                            emptyStateMessage: 'No tasks yet',
+                            onTaskEdit: (task) =>
+                                _navigateToTaskDetail(task.id),
+                            onTaskComplete: (task) => _completeTask(task),
+                            onTaskDelete: (task) => _deleteTask(task),
+                            onTaskImportanceChange: (task, importance) =>
+                                _updateTaskImportance(task, importance),
+                            onTaskStatusChange: (task, status) =>
+                                _updateTaskStatus(task, status),
+                            onAddTask: () => _navigateToTaskForm(),
+                          ),
+
+                          // Section 3: Recurring Tasks
+                          RecurringSection(width: screenWidth),
+
+                          // Section 4: Completed Tasks
+                          TaskListSection(
+                            title: 'Completed',
+                            tasksAsync: completedTasksAsync,
+                            width: screenWidth,
+                            emptyStateIcon: Icons.check_circle,
+                            emptyStateMessage: 'No completed tasks yet',
+                            onTaskEdit: (task) =>
+                                _navigateToTaskDetail(task.id),
+                            onTaskDelete: (task) => _deleteTask(task),
+                            onTaskImportanceChange: (task, importance) =>
+                                _updateTaskImportance(task, importance),
+                            onTaskStatusChange: (task, status) =>
+                                _updateTaskStatus(task, status),
+                          ),
+
+                          // Section 5: Settings
+                          const SettingsSection(),
+                        ],
+                      ),
+                    ),
                   ),
-
-                  // Section 2: All Tasks
-                  TaskListSection(
-                    title: 'All Tasks',
-                    tasksAsync: allTasksAsync,
-                    width: screenWidth,
-                    emptyStateIcon: Icons.check_circle_outline,
-                    emptyStateMessage: 'No tasks yet',
-                    onTaskEdit: (task) => _navigateToTaskDetail(task.id),
-                    onTaskComplete: (task) => _completeTask(task),
-                    onTaskDelete: (task) => _deleteTask(task),
-                    onTaskImportanceChange: (task, importance) =>
-                        _updateTaskImportance(task, importance),
-                  ),
-
-                  // Section 3: Recurring Tasks
-                  RecurringSection(width: screenWidth),
-
-                  // Section 4: Completed Tasks
-                  TaskListSection(
-                    title: 'Completed',
-                    tasksAsync: completedTasksAsync,
-                    width: screenWidth,
-                    emptyStateIcon: Icons.check_circle,
-                    emptyStateMessage: 'No completed tasks yet',
-                    onTaskEdit: (task) => _navigateToTaskDetail(task.id),
-                    onTaskDelete: (task) => _deleteTask(task),
-                    onTaskImportanceChange: (task, importance) =>
-                        _updateTaskImportance(task, importance),
-                  ),
-
-                  // Section 5: Settings
-                  const SettingsSection(),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -352,6 +383,50 @@ class _HomePageState extends ConsumerState<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating priority: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Update a task's status
+  Future<void> _updateTaskStatus(TodoTask task, TaskStatus status) async {
+    try {
+      final updatedTask = task.copyWith(status: status.name);
+      final updateTask = ref.read(updateTaskProvider);
+      await updateTask(updatedTask);
+
+      if (mounted) {
+        String label = 'Status updated';
+        switch (status) {
+          case TaskStatus.notStarted:
+            label = 'Marked as Not Started';
+            break;
+          case TaskStatus.inProgress:
+            label = 'Marked as In Progress';
+            break;
+          case TaskStatus.onHold:
+            label = 'Marked as On Hold';
+            break;
+          case TaskStatus.completed:
+            label = 'Marked as Completed';
+            break;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(label),
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating status: ${e.toString()}'),
             backgroundColor: AppColors.error,
           ),
         );
