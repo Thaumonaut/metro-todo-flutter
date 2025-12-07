@@ -32,7 +32,8 @@ class TaskListSection extends ConsumerStatefulWidget {
   final void Function(TodoTask task)? onTaskEdit;
   final void Function(TodoTask task)? onTaskComplete;
   final void Function(TodoTask task)? onTaskDelete;
-  final void Function(TodoTask task, ImportanceLevel importance)? onTaskImportanceChange;
+  final void Function(TodoTask task, ImportanceLevel importance)?
+  onTaskImportanceChange;
 
   @override
   ConsumerState<TaskListSection> createState() => _TaskListSectionState();
@@ -83,7 +84,7 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
 
   Future<void> _bulkComplete(List<TodoTask> tasks) async {
     final repo = ref.read(todoRepositoryProvider);
-    await repo.bulkComplete(tasks);
+    await repo.bulkComplete(tasks.map((t) => t.id).toList());
     _cancelSelection();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,18 +95,24 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
 
   Future<void> _bulkDelete(List<TodoTask> tasks) async {
     final repo = ref.read(todoRepositoryProvider);
-    await repo.bulkDelete(tasks);
+    await repo.bulkDelete(tasks.map((t) => t.id).toList());
     _cancelSelection();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${tasks.length} tasks deleted')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${tasks.length} tasks deleted')));
     }
   }
 
-  Future<void> _bulkChangeImportance(List<TodoTask> tasks, ImportanceLevel importance) async {
+  Future<void> _bulkChangeImportance(
+    List<TodoTask> tasks,
+    ImportanceLevel importance,
+  ) async {
     final repo = ref.read(todoRepositoryProvider);
-    await repo.bulkUpdateImportance(tasks, importance);
+    await repo.bulkUpdateImportance(
+      tasks.map((t) => t.id).toList(),
+      importance,
+    );
     _cancelSelection();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -156,9 +163,13 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
                           ),
                         ],
                         IconButton(
-                          icon: Icon(_isSelectionMode ? Icons.close : Icons.checklist),
+                          icon: Icon(
+                            _isSelectionMode ? Icons.close : Icons.checklist,
+                          ),
                           onPressed: _toggleSelectionMode,
-                          tooltip: _isSelectionMode ? 'Cancel' : 'Select multiple',
+                          tooltip: _isSelectionMode
+                              ? 'Cancel'
+                              : 'Select multiple',
                         ),
                       ],
                     ),
@@ -186,7 +197,8 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
               selectedTasks: selectedTasks,
               onComplete: () => _bulkComplete(selectedTasks),
               onDelete: () => _bulkDelete(selectedTasks),
-              onChangeImportance: (importance) => _bulkChangeImportance(selectedTasks, importance),
+              onChangeImportance: (importance) =>
+                  _bulkChangeImportance(selectedTasks, importance),
               onCancel: _cancelSelection,
             ),
           ),
@@ -210,9 +222,7 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
             ),
           ),
         ),
-        const Expanded(
-          child: Center(child: CircularProgressIndicator()),
-        ),
+        const Expanded(child: Center(child: CircularProgressIndicator())),
       ],
     );
   }
@@ -250,17 +260,11 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            widget.emptyStateIcon,
-            size: 64,
-            color: AppColors.textHint,
-          ),
+          Icon(widget.emptyStateIcon, size: 64, color: AppColors.textHint),
           const SizedBox(height: 16),
           Text(
             widget.emptyStateMessage,
-            style: AppTypography.body1.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: AppTypography.body1.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -294,21 +298,30 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
               children: [
                 TaskSummaryCard(
                   task: task,
-                  width: widget.width - 48,
+                  width: widget.width - 48 - (_isSelectionMode ? 40 : 0),
                   onEdit: _isSelectionMode
                       ? null
-                      : (widget.onTaskEdit != null ? () => widget.onTaskEdit!(task) : null),
+                      : (widget.onTaskEdit != null
+                            ? () => widget.onTaskEdit!(task)
+                            : null),
                   onComplete: _isSelectionMode
                       ? null
-                      : (widget.onTaskComplete != null ? () => widget.onTaskComplete!(task) : null),
+                      : (widget.onTaskComplete != null
+                            ? () => widget.onTaskComplete!(task)
+                            : null),
                   onDelete: _isSelectionMode
                       ? null
-                      : (widget.onTaskDelete != null ? () => widget.onTaskDelete!(task) : null),
+                      : (widget.onTaskDelete != null
+                            ? () => widget.onTaskDelete!(task)
+                            : null),
                   onImportanceChange: _isSelectionMode
                       ? null
                       : (widget.onTaskImportanceChange != null
-                          ? (importance) => widget.onTaskImportanceChange!(task, importance)
-                          : null),
+                            ? (importance) => widget.onTaskImportanceChange!(
+                                task,
+                                importance,
+                              )
+                            : null),
                 ),
                 if (_isSelectionMode)
                   Positioned.fill(
@@ -320,12 +333,16 @@ class _TaskListSectionState extends ConsumerState<TaskListSection> {
                         child: Container(
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withValues(alpha: 0.1)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                             border: isSelected
                                 ? Border.all(
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                     width: 2,
                                   )
                                 : null,

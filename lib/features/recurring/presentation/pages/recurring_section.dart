@@ -14,10 +14,7 @@ import '../../providers/recurring_providers.dart';
 class RecurringSection extends ConsumerWidget {
   final double width;
 
-  const RecurringSection({
-    super.key,
-    required this.width,
-  });
+  const RecurringSection({super.key, required this.width});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -75,9 +72,11 @@ class RecurringSection extends ConsumerWidget {
                 );
               }
               return Column(
-                children: templates.map((template) =>
-                  _buildTemplateCard(context, ref, template)
-                ).toList(),
+                children: templates
+                    .map(
+                      (template) => _buildTemplateCard(context, ref, template),
+                    )
+                    .toList(),
               );
             },
             loading: () => const Center(
@@ -86,7 +85,8 @@ class RecurringSection extends ConsumerWidget {
                 child: CircularProgressIndicator(),
               ),
             ),
-            error: (error, stack) => _buildErrorState(context, error.toString()),
+            error: (error, stack) =>
+                _buildErrorState(context, error.toString()),
           ),
 
           const SizedBox(height: 24),
@@ -113,13 +113,16 @@ class RecurringSection extends ConsumerWidget {
                 );
               }
               return Column(
-                children: instances.map((instance) =>
-                  _buildInstanceCard(context, ref, instance)
-                ).toList(),
+                children: instances
+                    .map(
+                      (instance) => _buildInstanceCard(context, ref, instance),
+                    )
+                    .toList(),
               );
             },
             loading: () => const SizedBox.shrink(),
-            error: (error, stack) => _buildErrorState(context, error.toString()),
+            error: (error, stack) =>
+                _buildErrorState(context, error.toString()),
           ),
 
           const SizedBox(height: 24),
@@ -128,7 +131,11 @@ class RecurringSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildTemplateCard(BuildContext context, WidgetRef ref, TodoTask template) {
+  Widget _buildTemplateCard(
+    BuildContext context,
+    WidgetRef ref,
+    TodoTask template,
+  ) {
     final patternAsync = template.recurringPatternId != null
         ? ref.watch(patternForTemplateProvider(template.recurringPatternId!))
         : null;
@@ -148,7 +155,9 @@ class RecurringSection extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -174,19 +183,23 @@ class RecurringSection extends ConsumerWidget {
                                 ? Text(
                                     _getPatternDescription(pattern),
                                     style: AppTypography.body2.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                   )
                                 : const SizedBox.shrink(),
                             loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
+                            error: (error, stack) => const SizedBox.shrink(),
                           ),
                       ],
                     ),
                   ),
                   Icon(
                     Icons.chevron_right,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ],
               ),
@@ -195,7 +208,9 @@ class RecurringSection extends ConsumerWidget {
                 Text(
                   'Started: ${DateFormat('MMM d, yyyy').format(template.dueDate!)}',
                   style: AppTypography.caption.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -206,7 +221,11 @@ class RecurringSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildInstanceCard(BuildContext context, WidgetRef ref, TodoTask instance) {
+  Widget _buildInstanceCard(
+    BuildContext context,
+    WidgetRef ref,
+    TodoTask instance,
+  ) {
     final isOverdue = instance.isOverdue;
     final isDueToday = instance.isDueToday;
 
@@ -217,7 +236,11 @@ class RecurringSection extends ConsumerWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: _getDateColor(isOverdue, isDueToday, context).withValues(alpha: 0.1),
+            color: _getDateColor(
+              isOverdue,
+              isDueToday,
+              context,
+            ).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
@@ -235,7 +258,9 @@ class RecurringSection extends ConsumerWidget {
         title: Text(
           instance.title,
           style: TextStyle(
-            decoration: instance.isCompleted ? TextDecoration.lineThrough : null,
+            decoration: instance.isCompleted
+                ? TextDecoration.lineThrough
+                : null,
           ),
         ),
         subtitle: Text(
@@ -286,7 +311,9 @@ class RecurringSection extends ConsumerWidget {
           Icon(
             icon,
             size: 48,
-            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
@@ -297,10 +324,7 @@ class RecurringSection extends ConsumerWidget {
           ),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: onAction,
-              child: Text(actionLabel),
-            ),
+            OutlinedButton(onPressed: onAction, child: Text(actionLabel)),
           ],
         ],
       ),
@@ -327,6 +351,8 @@ class RecurringSection extends ConsumerWidget {
       case RecurrenceType.weekly:
         if (pattern.daysOfWeek != null && pattern.daysOfWeek!.isNotEmpty) {
           final days = pattern.daysOfWeek!
+              .split(',')
+              .map((e) => int.parse(e.trim()))
               .map((d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d])
               .join(', ');
           return 'Every $interval${pattern.interval == 1 ? 'week' : 'weeks'} on $days';
@@ -337,7 +363,7 @@ class RecurringSection extends ConsumerWidget {
           return 'Monthly on the last day';
         }
         if (pattern.daysOfMonth != null && pattern.daysOfMonth!.isNotEmpty) {
-          final days = pattern.daysOfMonth!.join(', ');
+          final days = pattern.daysOfMonth!;
           return 'Monthly on day $days';
         }
         return 'Monthly';
@@ -351,13 +377,15 @@ class RecurringSection extends ConsumerWidget {
   void _navigateToRecurringForm(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const TaskFormPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const TaskFormPage()),
     );
   }
 
-  void _showTemplateOptions(BuildContext context, WidgetRef ref, TodoTask template) {
+  void _showTemplateOptions(
+    BuildContext context,
+    WidgetRef ref,
+    TodoTask template,
+  ) {
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -381,8 +409,14 @@ class RecurringSection extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
-              title: Text('Delete Series', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              leading: Icon(
+                Icons.delete,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Delete Series',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDeleteSeries(context, ref, template);
@@ -397,13 +431,15 @@ class RecurringSection extends ConsumerWidget {
   void _editTemplate(BuildContext context, TodoTask template) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => TaskFormPage(task: template),
-      ),
+      MaterialPageRoute(builder: (context) => TaskFormPage(task: template)),
     );
   }
 
-  void _confirmDeleteSeries(BuildContext context, WidgetRef ref, TodoTask template) {
+  void _confirmDeleteSeries(
+    BuildContext context,
+    WidgetRef ref,
+    TodoTask template,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -429,7 +465,10 @@ class RecurringSection extends ConsumerWidget {
                 }
               }
             },
-            child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         ],
       ),
@@ -438,11 +477,11 @@ class RecurringSection extends ConsumerWidget {
 
   Future<void> _completeInstance(WidgetRef ref, TodoTask instance) async {
     final todoRepo = ref.read(todoRepositoryProvider);
-    await todoRepo.completeTodo(instance);
+    await todoRepo.completeTodo(instance.id);
   }
 
   Future<void> _skipInstance(WidgetRef ref, TodoTask instance) async {
     final skip = ref.read(skipRecurringInstanceProvider);
-    await skip(instance);
+    await skip(instance.id);
   }
 }

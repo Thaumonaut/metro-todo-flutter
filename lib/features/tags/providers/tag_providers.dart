@@ -10,33 +10,42 @@ final watchAllTagsProvider = StreamProvider<List<TaskTag>>((ref) {
 });
 
 /// Provider for creating a tag
-final createTagProvider = Provider<Future<TaskTag> Function({
-  required String name,
-  required Color color,
-  String? icon,
-})>((ref) {
-  final tagRepo = ref.watch(tagRepositoryProvider);
-  return ({
-    required String name,
-    required Color color,
-    String? icon,
-  }) {
-    return tagRepo.createTag(
-      name: name,
-      color: color,
-      icon: icon,
-    );
-  };
-});
+final createTagProvider =
+    Provider<
+      Future<TaskTag> Function({
+        required String name,
+        required Color color,
+        String? icon,
+      })
+    >((ref) {
+      final tagRepo = ref.watch(tagRepositoryProvider);
+      return ({
+        required String name,
+        required Color color,
+        String? icon,
+      }) async {
+        final id = await tagRepo.createTag(
+          name: name,
+          color: color,
+          icon: icon,
+        );
+        return (await tagRepo.getTagById(id))!;
+      };
+    });
 
 /// Provider for updating a tag
 final updateTagProvider = Provider<Future<void> Function(TaskTag)>((ref) {
   final tagRepo = ref.watch(tagRepositoryProvider);
-  return (TaskTag tag) => tagRepo.updateTag(tag);
+  return (TaskTag tag) => tagRepo.updateTag(
+    tag.id,
+    name: tag.name,
+    colorValue: tag.colorValue,
+    icon: tag.icon,
+  );
 });
 
 /// Provider for deleting a tag
 final deleteTagProvider = Provider<Future<bool> Function(TaskTag)>((ref) {
   final tagRepo = ref.watch(tagRepositoryProvider);
-  return (TaskTag tag) => tagRepo.deleteTag(tag);
+  return (TaskTag tag) => tagRepo.deleteTag(tag.id);
 });

@@ -1,25 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
+import '../database/database.dart';
 import '../services/database_service.dart';
 import '../repositories/todo_repository.dart';
 import '../repositories/tag_repository.dart';
-import '../models/todo_task.dart';
-import '../models/task_tag.dart';
 
 // Database provider
-final databaseProvider = Provider<Isar>((ref) {
+final databaseProvider = Provider<AppDatabase>((ref) {
   return DatabaseService.instance;
 });
 
 // Repository providers
 final todoRepositoryProvider = Provider<TodoRepository>((ref) {
-  final isar = ref.watch(databaseProvider);
-  return TodoRepository(isar);
+  final db = ref.watch(databaseProvider);
+  return TodoRepository(db);
 });
 
 final tagRepositoryProvider = Provider<TagRepository>((ref) {
-  final isar = ref.watch(databaseProvider);
-  return TagRepository(isar);
+  final db = ref.watch(databaseProvider);
+  return TagRepository(db);
 });
 
 // Stream providers for reactive data
@@ -37,7 +35,9 @@ final allTagsStreamProvider = StreamProvider<List<TaskTag>>((ref) {
 });
 
 /// Stream of incomplete todos
-final incompleteTodosStreamProvider = StreamProvider<List<TodoTask>>((ref) async* {
+final incompleteTodosStreamProvider = StreamProvider<List<TodoTask>>((
+  ref,
+) async* {
   final repository = ref.watch(todoRepositoryProvider);
   await for (final todos in repository.watchAllTodos()) {
     yield todos.where((todo) => !todo.isCompleted).toList();
@@ -45,7 +45,9 @@ final incompleteTodosStreamProvider = StreamProvider<List<TodoTask>>((ref) async
 });
 
 /// Stream of completed todos
-final completedTodosStreamProvider = StreamProvider<List<TodoTask>>((ref) async* {
+final completedTodosStreamProvider = StreamProvider<List<TodoTask>>((
+  ref,
+) async* {
   final repository = ref.watch(todoRepositoryProvider);
   await for (final todos in repository.watchAllTodos()) {
     yield todos.where((todo) => todo.isCompleted).toList();
@@ -53,7 +55,9 @@ final completedTodosStreamProvider = StreamProvider<List<TodoTask>>((ref) async*
 });
 
 /// Stream of todos due today
-final todosDueTodayStreamProvider = StreamProvider<List<TodoTask>>((ref) async* {
+final todosDueTodayStreamProvider = StreamProvider<List<TodoTask>>((
+  ref,
+) async* {
   final repository = ref.watch(todoRepositoryProvider);
   await for (final todos in repository.watchAllTodos()) {
     yield todos.where((todo) => todo.isDueToday && !todo.isCompleted).toList();

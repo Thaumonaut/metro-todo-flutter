@@ -51,9 +51,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ),
         title: Text(
           'Search',
-          style: AppTypography.h3.copyWith(
-            color: AppColors.textPrimary,
-          ),
+          style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
         ),
       ),
       body: Column(
@@ -83,24 +81,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: TextField(
         controller: _searchController,
         focusNode: _focusNode,
-        style: AppTypography.body1.copyWith(
-          color: AppColors.textPrimary,
-        ),
+        style: AppTypography.body1.copyWith(color: AppColors.textPrimary),
         decoration: InputDecoration(
           hintText: 'Search tasks...',
-          hintStyle: AppTypography.body1.copyWith(
-            color: AppColors.textHint,
-          ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: AppColors.textSecondary,
-          ),
+          hintStyle: AppTypography.body1.copyWith(color: AppColors.textHint),
+          prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(
-                    Icons.clear,
-                    color: AppColors.textSecondary,
-                  ),
+                  icon: Icon(Icons.clear, color: AppColors.textSecondary),
                   onPressed: () {
                     _searchController.clear();
                     ref.read(searchQueryProvider.notifier).state = '';
@@ -111,24 +99,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           fillColor: AppColors.background,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: AppColors.glassBorder,
-              width: 1.5,
-            ),
+            borderSide: BorderSide(color: AppColors.glassBorder, width: 1.5),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: AppColors.glassBorder,
-              width: 1.5,
-            ),
+            borderSide: BorderSide(color: AppColors.glassBorder, width: 1.5),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: AppColors.primary,
-              width: 2,
-            ),
+            borderSide: BorderSide(color: AppColors.primary, width: 2),
           ),
         ),
         onChanged: (value) {
@@ -250,24 +229,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search,
-            size: 64,
-            color: AppColors.textHint,
-          ),
+          Icon(Icons.search, size: 64, color: AppColors.textHint),
           const SizedBox(height: 16),
           Text(
             'Search your tasks',
-            style: AppTypography.h3.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
             'Enter a keyword to find tasks',
-            style: AppTypography.body2.copyWith(
-              color: AppColors.textHint,
-            ),
+            style: AppTypography.body2.copyWith(color: AppColors.textHint),
           ),
         ],
       ),
@@ -297,33 +268,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           },
         );
       },
-      loading: () => Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primary,
-        ),
-      ),
+      loading: () =>
+          Center(child: CircularProgressIndicator(color: AppColors.primary)),
       error: (error, stack) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: AppColors.error,
-            ),
+            Icon(Icons.error_outline, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
             Text(
               'Error loading results',
-              style: AppTypography.h3.copyWith(
-                color: AppColors.error,
-              ),
+              style: AppTypography.h3.copyWith(color: AppColors.error),
             ),
             const SizedBox(height: 8),
             Text(
               error.toString(),
-              style: AppTypography.body2.copyWith(
-                color: AppColors.textHint,
-              ),
+              style: AppTypography.body2.copyWith(color: AppColors.textHint),
               textAlign: TextAlign.center,
             ),
           ],
@@ -338,24 +298,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 64,
-            color: AppColors.textHint,
-          ),
+          Icon(Icons.inbox_outlined, size: 64, color: AppColors.textHint),
           const SizedBox(height: 16),
           Text(
             'No results found',
-            style: AppTypography.h3.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
             'Try a different search term',
-            style: AppTypography.body2.copyWith(
-              color: AppColors.textHint,
-            ),
+            style: AppTypography.body2.copyWith(color: AppColors.textHint),
           ),
         ],
       ),
@@ -404,14 +356,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               children: [
                 _buildMetadataChip(
                   icon: Icons.flag,
-                  label: task.importance.name,
-                  color: _getImportanceColor(task.importance.name),
+                  label: task.importance,
+                  color: _getImportanceColor(task.importance),
                 ),
                 const SizedBox(width: 8),
                 _buildMetadataChip(
                   icon: Icons.circle,
-                  label: task.status.name,
-                  color: _getStatusColor(task.status.name),
+                  label: task.status,
+                  color: _getStatusColor(task.status),
                 ),
                 if (task.dueDate != null) ...[
                   const SizedBox(width: 8),
@@ -444,11 +396,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: color,
-          ),
+          Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
           Text(
             label,
@@ -521,9 +469,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Future<void> _navigateToTaskDetail(int taskId) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => TaskDetailPage(taskId: taskId),
-      ),
+      MaterialPageRoute(builder: (context) => TaskDetailPage(taskId: taskId)),
     );
   }
 }

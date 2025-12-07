@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:todo_project/features/settings/presentation/pages/notification_settings_page.dart';
 import '../../../../core/theme/app_typography.dart';
+// Using Flutter framework's `RadioGroup`.
 import '../../../../core/providers/preferences_providers.dart';
 import '../../../../data/models/importance_level.dart';
 import '../../../settings/presentation/pages/theme_settings_page.dart';
@@ -58,6 +60,7 @@ class SettingsSection extends ConsumerWidget {
                 onTap: () {
                   // TODO: Implement notification settings
                   // HINT: You'll need to create a notifications settings page
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationSettingsPage()));
                 },
               ),
               SettingsItem(
@@ -264,19 +267,21 @@ class SettingsSection extends ConsumerWidget {
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: ImportanceLevel.values.map((importance) {
-            return RadioListTile<ImportanceLevel>(
-              title: Text(importance.label),
-              value: importance,
-              groupValue: currentImportance,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(appPreferencesProvider.notifier).setDefaultImportance(value);
-                  Navigator.pop(context);
-                }
-              },
-            );
-          }).toList(),
+          children: [
+            ...ImportanceLevel.values.map((importance) {
+              return RadioListTile<ImportanceLevel>(
+                value: importance,
+                groupValue: currentImportance,
+                title: Text(importance.label),
+                onChanged: (v) {
+                  if (v != null) {
+                    ref.read(appPreferencesProvider.notifier).setDefaultImportance(v);
+                    Navigator.pop(context);
+                  }
+                },
+              );
+            }),
+          ],
         ),
         actions: [
           TextButton(

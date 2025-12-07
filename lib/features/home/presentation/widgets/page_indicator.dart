@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// A horizontal page indicator showing the current page with a label and underline
@@ -27,7 +26,7 @@ class PageIndicator extends StatelessWidget {
               style: AppTypography.caption.copyWith(
                 color: isActive
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
             ),
           ),

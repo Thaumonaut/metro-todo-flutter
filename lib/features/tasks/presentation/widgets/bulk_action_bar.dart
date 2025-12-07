@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../data/models/todo_task.dart';
 import '../../../../data/models/importance_level.dart';
+import '../../../../data/models/todo_task.dart'; // Added import
 
 /// Floating action bar for bulk operations on selected tasks
 class BulkActionBar extends StatelessWidget {
@@ -42,7 +42,9 @@ class BulkActionBar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -99,10 +101,7 @@ class BulkActionBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: ImportanceLevel.values.map((level) {
             return ListTile(
-              leading: Icon(
-                Icons.flag,
-                color: _getImportanceColor(level),
-              ),
+              leading: Icon(Icons.flag, color: _getImportanceColor(level)),
               title: Text(level.label),
               onTap: () {
                 Navigator.pop(context);
@@ -139,10 +138,7 @@ class BulkActionBar extends StatelessWidget {
               Navigator.pop(context);
               onDelete();
             },
-            child: Text(
-              'Delete',
-              style: TextStyle(color: AppColors.error),
-            ),
+            child: Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),

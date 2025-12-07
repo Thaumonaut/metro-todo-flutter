@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:io' show Platform;
+import 'package:windows_notification/notification_message.dart';
+import 'package:windows_notification/windows_notification.dart';
 import '../models/todo_task.dart';
 
 /// Service for managing local notifications
@@ -13,6 +18,7 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
 
+  late WindowsNotification _windowsNotification;
   bool _isInitialized = false;
 
   /// Notification channel IDs
@@ -25,36 +31,58 @@ class NotificationService {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    // Initialize timezone
-    tz_data.initializeTimeZones();
+    try {
+      // Initialize timezone
+      tz_data.initializeTimeZones();
 
-    // Android initialization settings
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      // Initialize Windows notifications if on Windows
+      if (Platform.isWindows) {
+        try {
+          // Create Windows notification instance
+          // Note: applicationId must be a valid Windows app ID or GUID
+          _windowsNotification = WindowsNotification(
+            applicationId: 'com.example.todo_project',
+          );
+          debugPrint('Windows notifications initialized');
+        } catch (e) {
+          debugPrint('Error initializing Windows notifications: $e');
+        }
+      }
 
-    // Linux initialization settings
-    final linuxSettings = LinuxInitializationSettings(
-      defaultActionName: 'Open',
-    );
+      // Android initialization settings
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS initialization settings
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-    );
+      // Linux initialization settings
+      final linuxSettings = LinuxInitializationSettings(
+        defaultActionName: 'Open',
+      );
 
-    final initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-      linux: linuxSettings,
-    );
+      // iOS initialization settings
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
 
-    await _notifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTap,
-    );
+      final initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+        linux: linuxSettings,
+        // Windows doesn't support flutter_local_notifications
+        // We use windows_notification package instead
+      );
 
-    _isInitialized = true;
+      await _notifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onNotificationTap,
+      );
+
+      _isInitialized = true;
+    } catch (e) {
+      debugPrint('Error initializing notification service: $e');
+      // Don't fail completely - just mark as attempted
+      _isInitialized = true;
+    }
   }
 
   /// Handle notification tap
@@ -70,6 +98,10 @@ class NotificationService {
   Future<bool> requestPermissions() async {
     final status = await Permission.notification.request();
     return status.isGranted;
+  }
+  /// Check if notifications are supported on this platform
+  bool areNotificationsSupported() {
+    return Platform.isAndroid || Platform.isIOS || Platform.isLinux;
   }
 
   /// Check if notifications are enabled
@@ -211,6 +243,54 @@ class NotificationService {
   /// Get pending notifications
   Future<List<PendingNotificationRequest>> getPendingNotifications() async {
     return await _notifications.pendingNotificationRequests();
+  }
+
+  /// Show a test notification (for testing purposes)
+  Future<void> showTestNotification() async {
+    if (!_isInitialized) {
+      throw Exception('Notification service not initialized. Try again after a moment.');
+    }
+
+    try {
+      if (Platform.isWindows) {
+        // Use Windows notification API with proper NotificationMessage
+        final message = NotificationMessage.fromPluginTemplate(
+          'test_notification',
+          'Test Notification',
+          'This is a test notification from Metro Todo',
+        );
+        _windowsNotification.showNotificationPluginTemplate(message);
+      } else if (areNotificationsSupported()) {
+        // Use flutter_local_notifications for other platforms
+        await _notifications.show(
+          999999,
+          'Test Notification',
+          'This is a test notification from Metro Todo',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'test',
+              'Test Notifications',
+              channelDescription: 'Test notification channel',
+            ),
+            linux: LinuxNotificationDetails(),
+          ),
+        );
+      } else {
+        throw Exception('Notifications are not supported on this platform (${_getPlatformName()}).');
+      }
+    } catch (e) {
+      debugPrint('Error showing test notification: $e');
+      rethrow;
+    }
+  }
+
+  String _getPlatformName() {
+    if (Platform.isWindows) return 'Windows';
+    if (Platform.isMacOS) return 'macOS';
+    if (Platform.isLinux) return 'Linux';
+    if (Platform.isAndroid) return 'Android';
+    if (Platform.isIOS) return 'iOS';
+    return 'Unknown';
   }
 
   // Helper methods

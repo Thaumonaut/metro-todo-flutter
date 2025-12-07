@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:drift/drift.dart' show Value;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
@@ -11,6 +12,7 @@ import '../../../../data/models/recurring_pattern.dart';
 import '../../../../shared/widgets/metro_button.dart';
 import '../../providers/task_providers.dart';
 import '../../../recurring/providers/recurring_providers.dart';
+import '../../../../data/providers/repository_providers.dart'; // Needed for tag repository
 import '../widgets/importance_selector.dart';
 import '../widgets/date_picker_field.dart';
 import '../widgets/tag_selector.dart';
@@ -18,10 +20,7 @@ import '../../../recurring/presentation/widgets/recurrence_pattern_selector.dart
 
 /// Page for creating or editing a task
 class TaskFormPage extends ConsumerStatefulWidget {
-  const TaskFormPage({
-    super.key,
-    this.task,
-  });
+  const TaskFormPage({super.key, this.task});
 
   /// Task to edit (null for creating new task)
   final TodoTask? task;
@@ -46,7 +45,8 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   RecurringPattern? _recurrencePattern;
 
   bool get isEditMode => widget.task != null;
-  bool get isEditingRecurringTemplate => isEditMode && widget.task!.isRecurringTemplate;
+  bool get isEditingRecurringTemplate =>
+      isEditMode && widget.task!.isRecurringTemplate;
 
   @override
   void initState() {
@@ -60,11 +60,22 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       final task = widget.task!;
       _titleController.text = task.title;
       _descriptionController.text = task.description ?? '';
-      _selectedImportance = task.importance;
-      _selectedStatus = task.status;
+
+      _selectedImportance = ImportanceLevel.values.firstWhere(
+        (e) => e.name == task.importance,
+        orElse: () => ImportanceLevel.medium,
+      );
+
+      _selectedStatus = TaskStatus.values.firstWhere(
+        (e) => e.name == task.status,
+        orElse: () => TaskStatus.notStarted,
+      );
+
       _selectedDueDate = task.dueDate;
-      // Tags will be loaded from the task.tags relationship
-      _selectedTags = task.tags.toList();
+
+      // Load tags asynchronously
+      _loadTags(task.id);
+
       // Recurrence settings
       _isRecurring = task.isRecurring;
       if (task.recurringPatternId != null) {
@@ -77,13 +88,33 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
     }
   }
 
+  Future<void> _loadTags(int taskId) async {
+    // Delay slightly to ensure provider is ready if called immediately in initState
+    // Or just call normally.
+    try {
+      final tagRepo = ref.read(tagRepositoryProvider);
+      final tags = await tagRepo.getTagsForTask(taskId);
+      if (mounted) {
+        setState(() {
+          _selectedTags = tags;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading tags: $e');
+    }
+  }
+
   Future<void> _loadPattern(int patternId) async {
-    final patternRepo = ref.read(recurringPatternRepositoryProvider);
-    final pattern = await patternRepo.getPattern(patternId);
-    if (pattern != null && mounted) {
-      setState(() {
-        _recurrencePattern = pattern;
-      });
+    try {
+      final patternRepo = ref.read(recurringPatternRepositoryProvider);
+      final pattern = await patternRepo.getPattern(patternId);
+      if (pattern != null && mounted) {
+        setState(() {
+          _recurrencePattern = pattern;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading pattern: $e');
     }
   }
 
@@ -128,7 +159,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
                 ),
                 hintText: 'Enter task title',
                 hintStyle: AppTypography.body1.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 filled: true,
                 fillColor: Theme.of(context).colorScheme.surface,
@@ -155,10 +188,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
                 ),
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Colors.red,
-                    width: 1.5,
-                  ),
+                  borderSide: const BorderSide(color: Colors.red, width: 1.5),
                 ),
               ),
               validator: (value) {
@@ -184,7 +214,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
                 ),
                 hintText: 'Enter task description',
                 hintStyle: AppTypography.body1.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 filled: true,
                 fillColor: Theme.of(context).colorScheme.surface,
@@ -393,30 +425,50 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       if (isEditMode) {
         // Update existing task
         final task = widget.task!;
-        task.title = _titleController.text.trim();
-        task.description = _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim();
-        task.importance = _selectedImportance;
-        task.status = _selectedStatus;
-        task.dueDate = _selectedDueDate;
+        // TodoTask is immutable (Drift generated). We must create a copy with new values.
+        // Also we can't directly assign to 'task' variable unless we update the widget.task which is final.
+        // We need to pass the updated FIELDS to the provider, or create a copy.
+        // Since updateTaskProvider expects TodoTask (Drift object), we create a copy.
 
-        // Update computed properties
-        task.updateComputedProperties();
+        final updatedTask = task.copyWith(
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty
+              ? const Value(null)
+              : Value(_descriptionController.text.trim()),
+          importance: _selectedImportance.name,
+          status: _selectedStatus.name,
+          dueDate: _selectedDueDate != null
+              ? Value(_selectedDueDate)
+              : const Value.absent(),
+        );
 
         // Update task
         final updateTask = ref.read(updateTaskProvider);
-        await updateTask(task);
+        await updateTask(updatedTask);
 
         // Handle tag changes
-        final currentTagIds = task.tags.map((t) => t.id).toSet();
+        // Since we loaded tags initially, we can compare.
+        // But logic below used `task.tags`. Now we must use `_selectedTags`.
+        // Wait, `updatedTask` doesn't have tags.
+        // Drift version of TodoTask doesn't track tags.
+        // We need 'previous tags'.
+        // We can fetch them again or trust our initial load if we stored them somewhere.
+        // We didn't store 'originalTags'.
+        // BUT TagRepository logic below:
+        // final currentTagIds = task.tags.map((t) => t.id).toSet();
+        // This is invalid because `task.tags` is not available.
+        // We must fetch current tags from DB to compare, OR (simpler) use the `_selectedTags` and update associations.
+        // Proper way:
+        final tagRepo = ref.read(tagRepositoryProvider);
+        final currentTags = await tagRepo.getTagsForTask(task.id);
+        final currentTagIds = currentTags.map((t) => t.id).toSet();
         final newTagIds = _selectedTags.map((t) => t.id).toSet();
 
         // Remove tags that are no longer selected
-        for (final tag in task.tags.toList()) {
+        for (final tag in currentTags) {
           if (!newTagIds.contains(tag.id)) {
             final removeTag = ref.read(removeTagFromTaskProvider);
-            await removeTag(task, tag);
+            await removeTag(updatedTask, tag);
           }
         }
 
@@ -424,7 +476,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
         for (final tag in _selectedTags) {
           if (!currentTagIds.contains(tag.id)) {
             final addTag = ref.read(addTagToTaskProvider);
-            await addTag(task, tag);
+            await addTag(updatedTask, tag);
           }
         }
 
@@ -445,7 +497,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Please select a start date for the recurring task'),
+                  content: Text(
+                    'Please select a start date for the recurring task',
+                  ),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -453,26 +507,35 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             return;
           }
 
-          final template = TodoTask()
-            ..uuid = const Uuid().v4()
-            ..title = _titleController.text.trim()
-            ..description = _descriptionController.text.trim().isEmpty
+          // For recurring template creation, we need a template object.
+          // Since TodoTask is immutable, we can use a basic constructor (Drift generated class has constructor).
+          // But createRecurringTaskProvider likely expects a "template" object to copy fields from.
+          // Let's create a temporary object.
+          final template = TodoTask(
+            id: 0, // placeholder
+            uuid: const Uuid().v4(),
+            title: _titleController.text.trim(),
+            description: _descriptionController.text.trim().isEmpty
                 ? null
-                : _descriptionController.text.trim()
-            ..importance = _selectedImportance
-            ..status = _selectedStatus
-            ..dueDate = _selectedDueDate
-            ..createdAt = DateTime.now()
-            ..isCompleted = false
-            ..isRecurring = true
-            ..isRecurringTemplate = true
-            ..isRecurringException = false
-            ..isSkipped = false;
-
-          template.updateComputedProperties();
+                : _descriptionController.text.trim(),
+            importance: _selectedImportance.name,
+            status: _selectedStatus.name,
+            dueDate: _selectedDueDate,
+            createdAt: DateTime.now(),
+            isCompleted: false,
+            isRecurring: true,
+            isRecurringTemplate: true,
+            isRecurringException: false,
+            isSkipped: false,
+            isDueToday: false, // will be computed
+            isOverdue: false, // will be computed
+          );
 
           final createRecurring = ref.read(createRecurringTaskProvider);
-          await createRecurring(template: template, pattern: _recurrencePattern!);
+          await createRecurring(
+            template: template,
+            pattern: _recurrencePattern!,
+          );
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -494,7 +557,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             importance: _selectedImportance,
             status: _selectedStatus,
             dueDate: _selectedDueDate,
-            tags: _selectedTags,
+            tagIds: _selectedTags.map((t) => t.id).toList(),
           );
 
           if (mounted) {
@@ -525,4 +588,4 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
       }
     }
   }
-}
+} // End class

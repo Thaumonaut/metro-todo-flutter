@@ -14,13 +14,11 @@ import '../widgets/recurrence_pattern_selector.dart';
 class RecurringTaskFormPage extends ConsumerStatefulWidget {
   final TodoTask? editTask;
 
-  const RecurringTaskFormPage({
-    super.key,
-    this.editTask,
-  });
+  const RecurringTaskFormPage({super.key, this.editTask});
 
   @override
-  ConsumerState<RecurringTaskFormPage> createState() => _RecurringTaskFormPageState();
+  ConsumerState<RecurringTaskFormPage> createState() =>
+      _RecurringTaskFormPageState();
 }
 
 class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
@@ -44,7 +42,7 @@ class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
     if (widget.editTask != null) {
       _titleController.text = widget.editTask!.title;
       _descriptionController.text = widget.editTask!.description ?? '';
-      _importance = widget.editTask!.importance;
+      _importance = ImportanceLevel.values.byName(widget.editTask!.importance);
       _startDate = widget.editTask!.dueDate;
       _isRecurring = widget.editTask!.isRecurring;
 
@@ -94,10 +92,7 @@ class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
               ),
             )
           else
-            TextButton(
-              onPressed: _saveTask,
-              child: const Text('Save'),
-            ),
+            TextButton(onPressed: _saveTask, child: const Text('Save')),
         ],
       ),
       body: Form(
@@ -135,17 +130,11 @@ class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
             const SizedBox(height: 24),
 
             // Importance
-            Text(
-              'Importance',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+            Text('Importance', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             SegmentedButton<ImportanceLevel>(
               segments: ImportanceLevel.values.map((level) {
-                return ButtonSegment(
-                  value: level,
-                  label: Text(level.label),
-                );
+                return ButtonSegment(value: level, label: Text(level.label));
               }).toList(),
               selected: {_importance},
               onSelectionChanged: (Set<ImportanceLevel> selection) {
@@ -157,10 +146,7 @@ class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
             const SizedBox(height: 24),
 
             // Start date
-            Text(
-              'Start Date',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+            Text('Start Date', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.calendar_today),
@@ -218,7 +204,9 @@ class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
 
     if (!_isRecurring || _pattern == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please configure the recurrence pattern')),
+        const SnackBar(
+          content: Text('Please configure the recurrence pattern'),
+        ),
       );
       return;
     }
@@ -235,23 +223,25 @@ class _RecurringTaskFormPageState extends ConsumerState<RecurringTaskFormPage> {
     });
 
     try {
-      final template = TodoTask()
-        ..uuid = const Uuid().v4()
-        ..title = _titleController.text.trim()
-        ..description = _descriptionController.text.trim().isEmpty
+      final template = TodoTask(
+        id: 0,
+        uuid: const Uuid().v4(),
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
             ? null
-            : _descriptionController.text.trim()
-        ..importance = _importance
-        ..status = TaskStatus.notStarted
-        ..dueDate = _startDate
-        ..createdAt = DateTime.now()
-        ..isCompleted = false
-        ..isRecurring = true
-        ..isRecurringTemplate = true
-        ..isRecurringException = false
-        ..isSkipped = false;
-
-      template.updateComputedProperties();
+            : _descriptionController.text.trim(),
+        importance: _importance.name,
+        status: TaskStatus.notStarted.name,
+        dueDate: _startDate,
+        createdAt: DateTime.now(),
+        isCompleted: false,
+        isRecurring: true,
+        isRecurringTemplate: true,
+        isRecurringException: false,
+        isSkipped: false,
+        isDueToday: false,
+        isOverdue: false,
+      );
 
       final createRecurring = ref.read(createRecurringTaskProvider);
       await createRecurring(template: template, pattern: _pattern!);

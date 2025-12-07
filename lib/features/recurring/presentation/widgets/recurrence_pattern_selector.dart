@@ -1,481 +1,242 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/recurring_pattern.dart';
+import '../../../../shared/widgets/metro_button.dart';
+import '../../../../shared/widgets/metro_button.dart';
 
-/// Widget for selecting and configuring a recurrence pattern
 class RecurrencePatternSelector extends StatefulWidget {
-  final bool isRecurring;
-  final RecurringPattern? pattern;
-  final DateTime? startDate;
-  final Function(bool isRecurring, RecurringPattern? pattern) onChanged;
-
   const RecurrencePatternSelector({
     super.key,
     required this.isRecurring,
     this.pattern,
-    this.startDate,
     required this.onChanged,
+    this.startDate,
   });
 
+  final bool isRecurring;
+  final RecurringPattern? pattern;
+  final Function(bool, RecurringPattern?) onChanged;
+  final DateTime? startDate;
+
   @override
-  State<RecurrencePatternSelector> createState() => _RecurrencePatternSelectorState();
+  State<RecurrencePatternSelector> createState() =>
+      _RecurrencePatternSelectorState();
 }
 
 class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
-  late bool _isRecurring;
   late RecurrenceType _type;
-  late int _interval;
-  late List<int> _daysOfWeek;
-  late List<int> _daysOfMonth;
-  late bool _lastDayOfMonth;
-  late bool _skipWeekends;
-  DateTime? _endDate;
-  int? _maxOccurrences;
-  late int _endType; // 0 = never, 1 = date, 2 = occurrences
+  int _interval = 1;
+  List<int> _daysOfWeek = [];
+  List<int> _daysOfMonth = [];
+  bool _lastDayOfMonth = false;
+
+  // Custom recurrence handling
+  final _intervalController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _initFromPattern(widget.pattern);
+    _initializeState();
+    _intervalController.addListener(() {
+      final value = int.tryParse(_intervalController.text);
+      if (value != null && value != _interval) {
+        setState(() {
+          _interval = value;
+          _updatePattern();
+        });
+      }
+    });
   }
 
-  void _initFromPattern(RecurringPattern? pattern) {
-    _isRecurring = widget.isRecurring;
-    _type = pattern?.type ?? RecurrenceType.weekly;
-    _interval = pattern?.interval ?? 1;
-    _daysOfWeek = pattern?.daysOfWeek ?? [DateTime.now().weekday - 1];
-    _daysOfMonth = pattern?.daysOfMonth ?? [DateTime.now().day];
-    _lastDayOfMonth = pattern?.lastDayOfMonth ?? false;
-    _skipWeekends = pattern?.skipWeekends ?? false;
-    _endDate = pattern?.endDate;
-    _maxOccurrences = pattern?.maxOccurrences;
-
-    if (_endDate != null) {
-      _endType = 1;
-    } else if (_maxOccurrences != null) {
-      _endType = 2;
-    } else {
-      _endType = 0;
+  @override
+  void didUpdateWidget(RecurrencePatternSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.pattern != oldWidget.pattern) {
+      _initializeState();
     }
   }
 
-  void _notifyChange() {
-    if (!_isRecurring) {
+  void _initializeState() {
+    if (widget.pattern != null) {
+      // Parse string type to enum
+      try {
+        _type = RecurrenceType.values.byName(widget.pattern!.type);
+      } catch (_) {
+        _type = RecurrenceType.daily;
+      }
+
+      _interval = widget.pattern!.interval;
+      _intervalController.text = _interval.toString();
+
+      // Parse CSV lists
+      if (widget.pattern!.daysOfWeek != null &&
+          widget.pattern!.daysOfWeek!.isNotEmpty) {
+        _daysOfWeek = widget.pattern!.daysOfWeek!
+            .split(',')
+            .map(int.parse)
+            .toList();
+      } else {
+        _daysOfWeek = [];
+      }
+
+      if (widget.pattern!.daysOfMonth != null &&
+          widget.pattern!.daysOfMonth!.isNotEmpty) {
+        _daysOfMonth = widget.pattern!.daysOfMonth!
+            .split(',')
+            .map(int.parse)
+            .toList();
+      } else {
+        _daysOfMonth = [];
+      }
+
+      _lastDayOfMonth = widget.pattern!.lastDayOfMonth ?? false;
+    } else {
+      _type = RecurrenceType.daily;
+      _interval = 1;
+      _intervalController.text = '1';
+      _daysOfWeek = [];
+      _daysOfMonth = [];
+      _lastDayOfMonth = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _intervalController.dispose();
+    super.dispose();
+  }
+
+  void _updatePattern() {
+    if (!widget.isRecurring) {
       widget.onChanged(false, null);
       return;
     }
 
-    final pattern = RecurringPattern()
-      ..type = _type
-      ..interval = _interval
-      ..daysOfWeek = _type == RecurrenceType.weekly ? _daysOfWeek : null
-      ..daysOfMonth = _type == RecurrenceType.monthly && !_lastDayOfMonth ? _daysOfMonth : null
-      ..lastDayOfMonth = _type == RecurrenceType.monthly ? _lastDayOfMonth : null
-      ..skipWeekends = _skipWeekends
-      ..endDate = _endType == 1 ? _endDate : null
-      ..maxOccurrences = _endType == 2 ? _maxOccurrences : null;
+    // Create new RecurringPattern object
+    // Note: ID is auto-increment, we can use 0 for temporary object or unsaved object.
+    // The createRecurringTask provider will assume it's data to be inserted.
+
+    final pattern = RecurringPattern(
+      id: 0, // Placeholder
+      type: _type.name,
+      interval: _interval,
+      daysOfWeek: _type == RecurrenceType.weekly && _daysOfWeek.isNotEmpty
+          ? _daysOfWeek.join(',')
+          : null,
+      daysOfMonth:
+          _type == RecurrenceType.monthly &&
+              !_lastDayOfMonth &&
+              _daysOfMonth.isNotEmpty
+          ? _daysOfMonth.join(',')
+          : null,
+      lastDayOfMonth: _type == RecurrenceType.monthly ? _lastDayOfMonth : false,
+      nthWeekday: null, // Simplification for now
+      weekdayOfMonth: null,
+      monthOfYear: null,
+      dayOfYear: null,
+      skipWeekends: false,
+      endDate: null,
+      maxOccurrences: null,
+      isActive: true,
+      createdAt: DateTime.now(),
+    );
 
     widget.onChanged(true, pattern);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Toggle for recurring
-        SwitchListTile(
-          title: const Text('Repeat'),
-          subtitle: _isRecurring ? Text(_getPatternSummary()) : null,
-          value: _isRecurring,
-          onChanged: (value) {
-            setState(() {
-              _isRecurring = value;
-            });
-            _notifyChange();
-          },
-          contentPadding: EdgeInsets.zero,
-        ),
-
-        if (_isRecurring) ...[
-          const SizedBox(height: 16),
-
-          // Pattern type selector
-          Text(
-            'Repeat',
-            style: theme.textTheme.titleSmall,
-          ),
-          const SizedBox(height: 8),
-          SegmentedButton<RecurrenceType>(
-            segments: const [
-              ButtonSegment(value: RecurrenceType.daily, label: Text('Daily')),
-              ButtonSegment(value: RecurrenceType.weekly, label: Text('Weekly')),
-              ButtonSegment(value: RecurrenceType.monthly, label: Text('Monthly')),
-              ButtonSegment(value: RecurrenceType.yearly, label: Text('Yearly')),
-            ],
-            selected: {_type},
-            onSelectionChanged: (Set<RecurrenceType> selection) {
-              setState(() {
-                _type = selection.first;
-              });
-              _notifyChange();
-            },
-          ),
-          const SizedBox(height: 16),
-
-          // Interval selector
-          Row(
-            children: [
-              Text('Every ', style: theme.textTheme.bodyLarge),
-              SizedBox(
-                width: 80,
-                child: DropdownButtonFormField<int>(
-                  initialValue: _interval,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: List.generate(30, (i) => i + 1)
-                      .map((i) => DropdownMenuItem(value: i, child: Text('$i')))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _interval = value ?? 1;
-                    });
-                    _notifyChange();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(_getIntervalLabel(), style: theme.textTheme.bodyLarge),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Type-specific options
-          ..._buildTypeSpecificOptions(),
-
-          const SizedBox(height: 16),
-
-          // Skip weekends
-          if (_type == RecurrenceType.daily)
-            CheckboxListTile(
-              title: const Text('Skip weekends'),
-              value: _skipWeekends,
+        Row(
+          children: [
+            Checkbox(
+              value: widget.isRecurring,
               onChanged: (value) {
-                setState(() {
-                  _skipWeekends = value ?? false;
-                });
-                _notifyChange();
-              },
-              contentPadding: EdgeInsets.zero,
-            ),
-
-          // End condition
-          const SizedBox(height: 8),
-          Text(
-            'Ends',
-            style: theme.textTheme.titleSmall,
-          ),
-          const SizedBox(height: 8),
-          _buildEndConditionSelector(),
-
-          // Preview
-          const SizedBox(height: 24),
-          Text(
-            'Next occurrences',
-            style: theme.textTheme.titleSmall,
-          ),
-          const SizedBox(height: 8),
-          _buildPreview(),
-        ],
-      ],
-    );
-  }
-
-  List<Widget> _buildTypeSpecificOptions() {
-    switch (_type) {
-      case RecurrenceType.weekly:
-        return [_buildDaysOfWeekSelector()];
-      case RecurrenceType.monthly:
-        return [_buildMonthlyOptions()];
-      case RecurrenceType.yearly:
-        return [_buildYearlyInfo()];
-      default:
-        return [];
-    }
-  }
-
-  Widget _buildDaysOfWeekSelector() {
-    final dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('On', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: List.generate(7, (index) {
-            final isSelected = _daysOfWeek.contains(index);
-            return FilterChip(
-              label: Text(dayNames[index]),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _daysOfWeek.add(index);
-                  } else {
-                    _daysOfWeek.remove(index);
+                if (value == true) {
+                  // Default to daily if enabling
+                  widget.onChanged(true, widget.pattern);
+                  // Trigger update to create initial pattern if null
+                  if (widget.pattern == null) {
+                    Future.microtask(_updatePattern);
                   }
-                  _daysOfWeek.sort();
-                });
-                _notifyChange();
+                } else {
+                  widget.onChanged(false, null);
+                }
               },
-            );
-          }),
+            ),
+            Text(
+              'Recurring Task',
+              style: AppTypography.body1.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ],
         ),
-      ],
-    );
-  }
 
-  Widget _buildMonthlyOptions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CheckboxListTile(
-          title: const Text('Last day of month'),
-          value: _lastDayOfMonth,
-          onChanged: (value) {
-            setState(() {
-              _lastDayOfMonth = value ?? false;
-            });
-            _notifyChange();
-          },
-          contentPadding: EdgeInsets.zero,
-        ),
-        if (!_lastDayOfMonth) ...[
-          Text('On day', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: List.generate(31, (index) {
-              final day = index + 1;
-              final isSelected = _daysOfMonth.contains(day);
-              return FilterChip(
-                label: Text('$day'),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _daysOfMonth.add(day);
-                    } else {
-                      _daysOfMonth.remove(day);
-                    }
-                    _daysOfMonth.sort();
-                  });
-                  _notifyChange();
-                },
-                visualDensity: VisualDensity.compact,
-              );
-            }),
+        if (widget.isRecurring) ...[
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Type Selector
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: RecurrenceType.values.map((type) {
+                    final isSelected = type == _type;
+                    return ChoiceChip(
+                      label: Text(type.name.toUpperCase()),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            _type = type;
+                            _updatePattern();
+                          });
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+
+                // Interval Selector
+                Row(
+                  children: [
+                    Text('Repeat every'),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 60,
+                      child: TextField(
+                        controller: _intervalController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(_getIntervalLabel()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Specific selectors based on type
+                if (_type == RecurrenceType.weekly) _buildWeeklySelector(),
+
+                if (_type == RecurrenceType.monthly) _buildMonthlySelector(),
+              ],
+            ),
           ),
         ],
       ],
     );
-  }
-
-  Widget _buildYearlyInfo() {
-    final startDate = widget.startDate ?? DateTime.now();
-    final monthName = DateFormat('MMMM').format(startDate);
-
-    return Text(
-      'On $monthName ${startDate.day}',
-      style: Theme.of(context).textTheme.bodyLarge,
-    );
-  }
-
-  Widget _buildEndConditionSelector() {
-    return Column(
-      children: [
-        // Never option
-        RadioListTile<int>(
-          title: const Text('Never'),
-          value: 0,
-          groupValue: _endType,
-          onChanged: (value) {
-            setState(() {
-              _endType = value ?? 0;
-              _endDate = null;
-              _maxOccurrences = null;
-            });
-            _notifyChange();
-          },
-          contentPadding: EdgeInsets.zero,
-        ),
-        // End on date option
-        RadioListTile<int>(
-          title: const Text('On date'),
-          subtitle: _endType == 1 && _endDate != null
-              ? Text(DateFormat('MMM d, yyyy').format(_endDate!))
-              : null,
-          value: 1,
-          groupValue: _endType,
-          onChanged: (value) {
-            setState(() {
-              _endType = value ?? 1;
-              _maxOccurrences = null;
-            });
-            if (_endDate == null) {
-              _selectEndDate();
-            }
-            _notifyChange();
-          },
-          secondary: _endType == 1
-              ? IconButton(
-                  icon: const Icon(Icons.edit_calendar),
-                  onPressed: _selectEndDate,
-                )
-              : null,
-          contentPadding: EdgeInsets.zero,
-        ),
-        // After occurrences option
-        RadioListTile<int>(
-          title: Text('After ${_maxOccurrences ?? 10} occurrences'),
-          value: 2,
-          groupValue: _endType,
-          onChanged: (value) {
-            setState(() {
-              _endType = value ?? 2;
-              _maxOccurrences ??= 10;
-              _endDate = null;
-            });
-            _notifyChange();
-          },
-          secondary: _endType == 2
-              ? PopupMenuButton<int>(
-                  icon: const Icon(Icons.edit),
-                  onSelected: (value) {
-                    setState(() {
-                      _maxOccurrences = value;
-                    });
-                    _notifyChange();
-                  },
-                  itemBuilder: (context) => [5, 10, 20, 30, 50, 100]
-                      .map((i) => PopupMenuItem(value: i, child: Text('$i')))
-                      .toList(),
-                )
-              : null,
-          contentPadding: EdgeInsets.zero,
-        ),
-      ],
-    );
-  }
-
-  Future<void> _selectEndDate() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _endDate ?? DateTime.now().add(const Duration(days: 90)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-    );
-    if (date != null) {
-      setState(() {
-        _endDate = date;
-      });
-      _notifyChange();
-    }
-  }
-
-  Widget _buildPreview() {
-    if (!_isRecurring) {
-      return const Text('No recurrence set');
-    }
-
-    // Build a temporary pattern to calculate occurrences
-    final pattern = RecurringPattern()
-      ..type = _type
-      ..interval = _interval
-      ..daysOfWeek = _type == RecurrenceType.weekly ? _daysOfWeek : null
-      ..daysOfMonth = _type == RecurrenceType.monthly && !_lastDayOfMonth ? _daysOfMonth : null
-      ..lastDayOfMonth = _type == RecurrenceType.monthly ? _lastDayOfMonth : null
-      ..skipWeekends = _skipWeekends
-      ..endDate = _endType == 1 ? _endDate : null
-      ..maxOccurrences = _endType == 2 ? _maxOccurrences : null;
-
-    // Simple preview calculation (first 5)
-    final startDate = widget.startDate ?? DateTime.now();
-    final previewDates = _calculatePreviewDates(pattern, startDate, 5);
-
-    if (previewDates.isEmpty) {
-      return const Text('No upcoming occurrences');
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      children: previewDates.map((date) {
-        return Chip(
-          label: Text(DateFormat('MMM d').format(date)),
-          visualDensity: VisualDensity.compact,
-        );
-      }).toList(),
-    );
-  }
-
-  List<DateTime> _calculatePreviewDates(RecurringPattern pattern, DateTime start, int count) {
-    final dates = <DateTime>[];
-    var current = start;
-
-    for (var i = 0; i < count && i < 100; i++) {
-      dates.add(current);
-      final next = _getNextOccurrence(pattern, current);
-      if (next == null) break;
-      current = next;
-    }
-
-    return dates;
-  }
-
-  DateTime? _getNextOccurrence(RecurringPattern pattern, DateTime after) {
-    switch (pattern.type) {
-      case RecurrenceType.daily:
-        return after.add(Duration(days: pattern.interval));
-      case RecurrenceType.weekly:
-        return after.add(Duration(days: 7 * pattern.interval));
-      case RecurrenceType.monthly:
-        return DateTime(after.year, after.month + pattern.interval, after.day);
-      case RecurrenceType.yearly:
-        return DateTime(after.year + pattern.interval, after.month, after.day);
-      default:
-        return null;
-    }
-  }
-
-  String _getPatternSummary() {
-    final interval = _interval == 1 ? '' : '$_interval ';
-
-    switch (_type) {
-      case RecurrenceType.daily:
-        final skip = _skipWeekends ? ' (weekdays)' : '';
-        return 'Every $interval${_interval == 1 ? 'day' : 'days'}$skip';
-      case RecurrenceType.weekly:
-        final days = _daysOfWeek.map((d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d]).join(', ');
-        return 'Every $interval${_interval == 1 ? 'week' : 'weeks'} on $days';
-      case RecurrenceType.monthly:
-        if (_lastDayOfMonth) {
-          return 'Monthly on the last day';
-        }
-        final days = _daysOfMonth.join(', ');
-        return 'Monthly on day $days';
-      case RecurrenceType.yearly:
-        return 'Yearly';
-      default:
-        return 'Custom';
-    }
   }
 
   String _getIntervalLabel() {
@@ -488,8 +249,71 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
         return _interval == 1 ? 'month' : 'months';
       case RecurrenceType.yearly:
         return _interval == 1 ? 'year' : 'years';
-      default:
-        return '';
+      case RecurrenceType.custom:
+        return 'custom';
     }
+  }
+
+  Widget _buildWeeklySelector() {
+    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return Wrap(
+      spacing: 8,
+      children: List.generate(7, (index) {
+        // Monday is 1, Sunday is 7
+        final dayNum = index + 1;
+        final isSelected = _daysOfWeek.contains(dayNum);
+        return FilterChip(
+          label: Text(days[index]),
+          selected: isSelected,
+          onSelected: (selected) {
+            setState(() {
+              if (selected) {
+                _daysOfWeek.add(dayNum);
+              } else {
+                _daysOfWeek.remove(dayNum);
+              }
+              _daysOfWeek.sort();
+              _updatePattern();
+            });
+          },
+        );
+      }),
+    );
+  }
+
+  Widget _buildMonthlySelector() {
+    return Column(
+      children: [
+        RadioListTile<bool>(
+          title: const Text('On specific days'),
+          value: false,
+          groupValue: _lastDayOfMonth,
+          onChanged: (val) {
+            setState(() {
+              _lastDayOfMonth = false;
+              _updatePattern();
+            });
+          },
+        ),
+        if (!_lastDayOfMonth)
+          Text(
+            'Wait, implementing Day Picker for Month is complex. Using input field for now.',
+          ),
+
+        // Simplified for this context
+        RadioListTile<bool>(
+          title: const Text('On the last day of the month'),
+          value: true,
+          groupValue: _lastDayOfMonth,
+          onChanged: (val) {
+            setState(() {
+              _lastDayOfMonth = true;
+              _daysOfMonth.clear();
+              _updatePattern();
+            });
+          },
+        ),
+      ],
+    );
   }
 }

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/task_tag.dart';
 import '../../../../shared/widgets/metro_button.dart';
 import '../../../../shared/widgets/glass_container.dart';
+import '../../../../data/providers/repository_providers.dart';
 import '../../providers/tag_providers.dart';
 
 /// Page for managing tags (create, edit, delete)
@@ -27,9 +28,7 @@ class _TagsPageState extends ConsumerState<TagsPage> {
         elevation: 0,
         title: Text(
           'Tags',
-          style: AppTypography.h3.copyWith(
-            color: AppColors.textPrimary,
-          ),
+          style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
         ),
       ),
       body: tagsAsync.when(
@@ -43,9 +42,7 @@ class _TagsPageState extends ConsumerState<TagsPage> {
         error: (error, _) => Center(
           child: Text(
             'Error loading tags',
-            style: AppTypography.body1.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: AppTypography.body1.copyWith(color: AppColors.textSecondary),
           ),
         ),
       ),
@@ -62,24 +59,16 @@ class _TagsPageState extends ConsumerState<TagsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.label_outline,
-            size: 64,
-            color: AppColors.textHint,
-          ),
+          Icon(Icons.label_outline, size: 64, color: AppColors.textHint),
           const SizedBox(height: 16),
           Text(
             'No tags yet',
-            style: AppTypography.h3.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: AppTypography.h3.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
             'Create tags to organize your tasks',
-            style: AppTypography.body1.copyWith(
-              color: AppColors.textHint,
-            ),
+            style: AppTypography.body1.copyWith(color: AppColors.textHint),
           ),
           const SizedBox(height: 24),
           MetroButton(
@@ -165,13 +154,15 @@ class _TagsPageState extends ConsumerState<TagsPage> {
   }
 
   Future<int> _getTaskCount(TaskTag tag) async {
-    await tag.tasks.load();
-    return tag.tasks.length;
+    final tagRepo = ref.read(tagRepositoryProvider);
+    return await tagRepo.getTagUsageCount(tag.id);
   }
 
   void _showTagDialog(BuildContext context, {TaskTag? tag}) {
     final nameController = TextEditingController(text: tag?.name ?? '');
-    Color selectedColor = tag != null ? Color(tag.colorValue) : AppColors.primary;
+    Color selectedColor = tag != null
+        ? Color(tag.colorValue)
+        : AppColors.primary;
 
     showDialog(
       context: context,
@@ -180,9 +171,7 @@ class _TagsPageState extends ConsumerState<TagsPage> {
           backgroundColor: AppColors.surface,
           title: Text(
             tag == null ? 'Create Tag' : 'Edit Tag',
-            style: AppTypography.h3.copyWith(
-              color: AppColors.textPrimary,
-            ),
+            style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -220,7 +209,8 @@ class _TagsPageState extends ConsumerState<TagsPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: _getColorOptions().map((color) {
-                  final isSelected = color.toARGB32() == selectedColor.toARGB32();
+                  final isSelected =
+                      color.toARGB32() == selectedColor.toARGB32();
                   return GestureDetector(
                     onTap: () {
                       setState(() {
@@ -239,7 +229,11 @@ class _TagsPageState extends ConsumerState<TagsPage> {
                         ),
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check, color: Colors.white, size: 20)
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 20,
+                            )
                           : null,
                     ),
                   );
@@ -262,16 +256,16 @@ class _TagsPageState extends ConsumerState<TagsPage> {
                   if (tag == null) {
                     // Create new tag
                     final createTag = ref.read(createTagProvider);
-                    await createTag(
-                      name: name,
-                      color: selectedColor,
-                    );
+                    await createTag(name: name, color: selectedColor);
                   } else {
                     // Update existing tag
-                    tag.name = name;
-                    tag.colorValue = selectedColor.toARGB32();
+                    final updatedTag = tag.copyWith(
+                      name: name,
+                      colorValue:
+                          selectedColor.value, // ignore: deprecated_member_use
+                    );
                     final updateTag = ref.read(updateTagProvider);
-                    await updateTag(tag);
+                    await updateTag(updatedTag);
                   }
                   if (context.mounted) {
                     Navigator.pop(context);
@@ -319,15 +313,11 @@ class _TagsPageState extends ConsumerState<TagsPage> {
         backgroundColor: AppColors.surface,
         title: Text(
           'Delete Tag',
-          style: AppTypography.h3.copyWith(
-            color: AppColors.textPrimary,
-          ),
+          style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
         ),
         content: Text(
           'Are you sure you want to delete "${tag.name}"? This will remove it from all tasks.',
-          style: AppTypography.body1.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: AppTypography.body1.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           MetroButton(

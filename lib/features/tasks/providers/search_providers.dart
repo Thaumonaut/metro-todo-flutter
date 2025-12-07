@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../data/models/todo_task.dart';
+import '../../../data/database/database.dart';
 import '../../../data/models/task_status.dart';
 import '../../../data/models/importance_level.dart';
 import '../../../data/providers/repository_providers.dart';
@@ -25,7 +25,8 @@ final searchResultsProvider = StreamProvider<List<TodoTask>>((ref) async* {
       final lowerQuery = query.toLowerCase();
       results = results.where((task) {
         final titleMatch = task.title.toLowerCase().contains(lowerQuery);
-        final descriptionMatch = task.description != null &&
+        final descriptionMatch =
+            task.description != null &&
             task.description!.toLowerCase().contains(lowerQuery);
         return titleMatch || descriptionMatch;
       }).toList();
@@ -37,17 +38,18 @@ final searchResultsProvider = StreamProvider<List<TodoTask>>((ref) async* {
         bool matches = true;
 
         if (filters.contains('in_progress')) {
-          matches = matches && task.status == TaskStatus.inProgress;
+          matches = matches && task.status == TaskStatus.inProgress.name;
         }
 
         if (filters.contains('completed')) {
-          matches = matches && task.status == TaskStatus.completed;
+          matches = matches && task.status == TaskStatus.completed.name;
         }
 
         if (filters.contains('high_priority')) {
-          matches = matches &&
-              (task.importance == ImportanceLevel.high ||
-                  task.importance == ImportanceLevel.critical);
+          matches =
+              matches &&
+              (task.importance == ImportanceLevel.high.name ||
+                  task.importance == ImportanceLevel.critical.name);
         }
 
         return matches;
@@ -64,7 +66,9 @@ final searchResultsProvider = StreamProvider<List<TodoTask>>((ref) async* {
       if (!aTitle && bTitle) return 1;
 
       // Then sort by importance
-      return b.importance.index.compareTo(a.importance.index);
+      final aImportance = ImportanceLevel.values.byName(a.importance);
+      final bImportance = ImportanceLevel.values.byName(b.importance);
+      return bImportance.index.compareTo(aImportance.index);
     });
 
     yield results;

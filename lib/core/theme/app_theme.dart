@@ -197,10 +197,8 @@ class AppTheme {
     // Dark mode colors
     const darkBackground = Color(0xFF121212);
     const darkSurface = Color(0xFF1E1E1E);
-    const darkSurfaceGlass = Color(0xCC1E1E1E);
     const darkTextPrimary = Color(0xFFE0E0E0);
     const darkTextSecondary = Color(0xFFB0B0B0);
-    const darkTextHint = Color(0xFF757575);
     const darkDivider = Color(0xFF2C2C2C);
 
     return ThemeData(

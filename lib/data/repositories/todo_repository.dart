@@ -1,562 +1,607 @@
-import 'package:isar/isar.dart';
+import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import '../models/todo_task.dart';
-import '../models/task_tag.dart';
+import '../database/database.dart';
 import '../models/importance_level.dart';
 import '../models/task_status.dart';
 
-/// Repository for managing todo tasks with Isar database
+/// Repository for managing todo tasks with Drift database
 class TodoRepository {
-  final Isar _isar;
+  final AppDatabase _db;
   static const _uuid = Uuid();
 
-  TodoRepository(this._isar);
+  TodoRepository(this._db);
 
   // CREATE
 
   /// Create a new todo task
-  Future<TodoTask> createTodo({
+  Future<int> createTodo({
     required String title,
     String? description,
     required ImportanceLevel importance,
     TaskStatus status = TaskStatus.notStarted,
     DateTime? dueDate,
-    List<TaskTag>? tags,
+    List<int>? tagIds,
   }) async {
-    final task = TodoTask()
-      ..uuid = _uuid.v4()
-      ..title = title
-      ..description = description
-      ..importance = importance
-      ..status = status
-      ..dueDate = dueDate
-      ..createdAt = DateTime.now()
-      ..isCompleted = false;
+    final now = DateTime.now();
+    final isDueToday = _isDueToday(dueDate);
+    final isOverdue = _isOverdue(dueDate);
 
-    // Update computed properties
-    task.updateComputedProperties();
+    final entry = TodoTasksCompanion(
+      uuid: Value(_uuid.v4()),
+      title: Value(title),
+      description: description != null
+          ? Value(description)
+          : const Value.absent(),
+      importance: Value(importance.name),
+      status: Value(status.name),
+      dueDate: dueDate != null ? Value(dueDate) : const Value.absent(),
+      createdAt: Value(now),
+      isCompleted: const Value(false),
+      isDueToday: Value(isDueToday),
+      isOverdue: Value(isOverdue),
+    );
 
-    await _isar.writeTxn(() async {
-      await _isar.todoTasks.put(task);
+    final taskId = await _db.into(_db.todoTasks).insert(entry);
 
-      // Link tags if provided
-      if (tags != null && tags.isNotEmpty) {
-        task.tags.addAll(tags);
-        await task.tags.save();
+    // Link tags if provided
+    if (tagIds != null && tagIds.isNotEmpty) {
+      for (final tagId in tagIds) {
+        await _db
+            .into(_db.todoTaskTags)
+            .insert(
+              TodoTaskTagsCompanion(taskId: Value(taskId), tagId: Value(tagId)),
+              onConflict: DoNothing(),
+            );
       }
-    });
+    }
 
-    return task;
+    return taskId;
   }
 
   // READ
 
   /// Get all todo tasks
   Future<List<TodoTask>> getAllTodos() async {
-    return await _isar.todoTasks.where().findAll();
+    return await _db.select(_db.todoTasks).get();
+  }
+
+  /// Get a todo task by ID
+  Future<TodoTask?> getTodoById(int id) async {
+    return await (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   }
 
   /// Get a todo task by UUID
   Future<TodoTask?> getTodoByUuid(String uuid) async {
-    return await _isar.todoTasks
-        .filter()
-        .uuidEqualTo(uuid)
-        .findFirst();
-  }
-
-  /// Get a todo task by ID
-  Future<TodoTask?> getTodoById(Id id) async {
-    return await _isar.todoTasks.get(id);
+    return await (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.uuid.equals(uuid))).getSingleOrNull();
   }
 
   /// Watch all todos (stream for reactive updates)
   Stream<List<TodoTask>> watchAllTodos() {
-    return _isar.todoTasks.where().watch(fireImmediately: true);
+    return (_db.select(_db.todoTasks)).watch();
   }
 
   /// Watch a specific todo by UUID
   Stream<TodoTask?> watchTodoByUuid(String uuid) {
-    return _isar.todoTasks
-        .filter()
-        .uuidEqualTo(uuid)
-        .watch(fireImmediately: true)
-        .map((tasks) => tasks.isNotEmpty ? tasks.first : null);
+    return (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.uuid.equals(uuid))).watchSingleOrNull();
   }
 
   /// Get todos due today
   Future<List<TodoTask>> getTodosDueToday() async {
-    return await _isar.todoTasks
-        .filter()
-        .isDueTodayEqualTo(true)
-        .and()
-        .isCompletedEqualTo(false)
-        .findAll();
+    return await (_db.select(_db.todoTasks)..where(
+          (tbl) => tbl.isDueToday.equals(true) & tbl.isCompleted.equals(false),
+        ))
+        .get();
   }
 
   /// Get overdue todos
   Future<List<TodoTask>> getOverdueTodos() async {
-    return await _isar.todoTasks
-        .filter()
-        .isOverdueEqualTo(true)
-        .and()
-        .isCompletedEqualTo(false)
-        .findAll();
+    return await (_db.select(_db.todoTasks)..where(
+          (tbl) => tbl.isOverdue.equals(true) & tbl.isCompleted.equals(false),
+        ))
+        .get();
   }
 
   /// Get todos by importance level
-  Future<List<TodoTask>> getTodosByImportance(ImportanceLevel importance) async {
-    return await _isar.todoTasks
-        .filter()
-        .importanceEqualTo(importance)
-        .and()
-        .isCompletedEqualTo(false)
-        .findAll();
+  Future<List<TodoTask>> getTodosByImportance(
+    ImportanceLevel importance,
+  ) async {
+    return await (_db.select(_db.todoTasks)..where(
+          (tbl) =>
+              tbl.importance.equals(importance.name) &
+              tbl.isCompleted.equals(false),
+        ))
+        .get();
   }
 
   /// Get todos by status
   Future<List<TodoTask>> getTodosByStatus(TaskStatus status) async {
-    return await _isar.todoTasks
-        .filter()
-        .statusEqualTo(status)
-        .findAll();
+    return await (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.status.equals(status.name))).get();
   }
 
   /// Get completed todos
   Future<List<TodoTask>> getCompletedTodos() async {
-    return await _isar.todoTasks
-        .filter()
-        .isCompletedEqualTo(true)
-        .findAll();
+    return await (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.isCompleted.equals(true))).get();
   }
 
   /// Get incomplete todos
   Future<List<TodoTask>> getIncompleteTodos() async {
-    return await _isar.todoTasks
-        .filter()
-        .isCompletedEqualTo(false)
-        .findAll();
+    return await (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.isCompleted.equals(false))).get();
   }
 
   /// Get todos with a specific tag
-  Future<List<TodoTask>> getTodosByTag(TaskTag tag) async {
-    final taskTag = await _isar.taskTags.get(tag.id);
-    if (taskTag == null) return [];
+  Future<List<TodoTask>> getTodosByTag(int tagId) async {
+    final query = _db.select(_db.todoTasks).join([
+      innerJoin(
+        _db.todoTaskTags,
+        _db.todoTaskTags.taskId.equalsExp(_db.todoTasks.id),
+      ),
+    ])..where(_db.todoTaskTags.tagId.equals(tagId));
 
-    await taskTag.tasks.load();
-    return taskTag.tasks.toList();
+    final rows = await query.get();
+    return rows.map((row) => row.readTable(_db.todoTasks)).toList();
   }
 
-  /// Search todos by title
+  /// Search todos by title or description
   Future<List<TodoTask>> searchTodos(String query) async {
-    return await _isar.todoTasks
-        .filter()
-        .titleContains(query, caseSensitive: false)
-        .or()
-        .descriptionContains(query, caseSensitive: false)
-        .findAll();
+    return await (_db.select(_db.todoTasks)..where(
+          (tbl) =>
+              tbl.title.like('%$query%') | tbl.description.like('%$query%'),
+        ))
+        .get();
   }
 
   // UPDATE
 
   /// Update a todo task
-  Future<void> updateTodo(TodoTask task) async {
-    // Update computed properties before saving
-    task.updateComputedProperties();
-
-    await _isar.writeTxn(() async {
-      await _isar.todoTasks.put(task);
-    });
+  Future<bool> updateTodo(
+    int id, {
+    String? title,
+    String? description,
+    ImportanceLevel? importance,
+    TaskStatus? status,
+    DateTime? dueDate,
+    bool? isCompleted,
+    DateTime? completedAt,
+    bool? isDueToday,
+    bool? isOverdue,
+  }) async {
+    return (await (_db.update(
+          _db.todoTasks,
+        )..where((tbl) => tbl.id.equals(id))).write(
+          TodoTasksCompanion(
+            title: title != null ? Value(title) : const Value.absent(),
+            description: description != null
+                ? Value(description)
+                : const Value.absent(),
+            importance: importance != null
+                ? Value(importance.name)
+                : const Value.absent(),
+            status: status != null ? Value(status.name) : const Value.absent(),
+            dueDate: dueDate != null ? Value(dueDate) : const Value.absent(),
+            isCompleted: isCompleted != null
+                ? Value(isCompleted)
+                : const Value.absent(),
+            completedAt: completedAt != null
+                ? Value(completedAt)
+                : const Value.absent(),
+            isDueToday: isDueToday != null
+                ? Value(isDueToday)
+                : const Value.absent(),
+            isOverdue: isOverdue != null
+                ? Value(isOverdue)
+                : const Value.absent(),
+          ),
+        )) >
+        0;
   }
 
   /// Mark a todo as completed
-  Future<void> completeTodo(TodoTask task) async {
-    task.isCompleted = true;
-    task.completedAt = DateTime.now();
-    task.status = TaskStatus.completed;
-    await updateTodo(task);
+  Future<bool> completeTodo(int taskId) async {
+    return await updateTodo(
+      taskId,
+      isCompleted: true,
+      completedAt: DateTime.now(),
+      status: TaskStatus.completed,
+    );
   }
 
   /// Mark a todo as incomplete
-  Future<void> uncompleteTodo(TodoTask task) async {
-    task.isCompleted = false;
-    task.completedAt = null;
-    task.status = TaskStatus.notStarted;
-    await updateTodo(task);
+  Future<bool> uncompleteTodo(int taskId) async {
+    return await updateTodo(
+      taskId,
+      isCompleted: false,
+      completedAt: null,
+      status: TaskStatus.notStarted,
+    );
   }
 
   /// Add a tag to a todo
-  Future<void> addTagToTodo(TodoTask task, TaskTag tag) async {
-    await _isar.writeTxn(() async {
-      task.tags.add(tag);
-      await task.tags.save();
-    });
+  Future<void> addTagToTodo(int taskId, int tagId) async {
+    await _db
+        .into(_db.todoTaskTags)
+        .insert(
+          TodoTaskTagsCompanion(taskId: Value(taskId), tagId: Value(tagId)),
+          onConflict: DoNothing(),
+        );
   }
 
   /// Remove a tag from a todo
-  Future<void> removeTagFromTodo(TodoTask task, TaskTag tag) async {
-    await _isar.writeTxn(() async {
-      task.tags.remove(tag);
-      await task.tags.save();
-    });
+  Future<void> removeTagFromTodo(int taskId, int tagId) async {
+    await (_db.delete(_db.todoTaskTags)
+          ..where((tbl) => tbl.taskId.equals(taskId) & tbl.tagId.equals(tagId)))
+        .go();
   }
 
   // DELETE
 
   /// Delete a todo task
-  Future<bool> deleteTodo(TodoTask task) async {
-    return await _isar.writeTxn(() async {
-      return await _isar.todoTasks.delete(task.id);
-    });
+  Future<bool> deleteTodo(int taskId) async {
+    // Delete tag associations
+    await (_db.delete(
+      _db.todoTaskTags,
+    )..where((tbl) => tbl.taskId.equals(taskId))).go();
+
+    // Delete the task
+    final count = await (_db.delete(
+      _db.todoTasks,
+    )..where((tbl) => tbl.id.equals(taskId))).go();
+
+    return count > 0;
   }
 
   /// Delete a todo by UUID
   Future<bool> deleteTodoByUuid(String uuid) async {
     final task = await getTodoByUuid(uuid);
     if (task == null) return false;
-    return await deleteTodo(task);
+    return await deleteTodo(task.id);
   }
 
   /// Delete all completed todos
   Future<int> deleteCompletedTodos() async {
-    final completed = await getCompletedTodos();
-    return await _isar.writeTxn(() async {
-      return await _isar.todoTasks.deleteAll(completed.map((t) => t.id).toList());
-    });
+    return await (_db.delete(
+      _db.todoTasks,
+    )..where((tbl) => tbl.isCompleted.equals(true))).go();
   }
 
   /// Delete all todos (use with caution!)
   Future<int> deleteAllTodos() async {
-    return await _isar.writeTxn(() async {
-      return await _isar.todoTasks.where().deleteAll();
-    });
+    // Delete all tag associations first
+    await _db.delete(_db.todoTaskTags).go();
+    // Delete all tasks
+    return await _db.delete(_db.todoTasks).go();
   }
 
   // STATISTICS
 
   /// Get count of all todos
   Future<int> getTodoCount() async {
-    return await _isar.todoTasks.count();
+    final result =
+        await (_db.selectOnly(_db.todoTasks)
+              ..addColumns([_db.todoTasks.id.count()]))
+            .map((row) => row.read(_db.todoTasks.id.count()))
+            .getSingle();
+    return result ?? 0;
   }
 
   /// Get count of completed todos
   Future<int> getCompletedCount() async {
-    return await _isar.todoTasks
-        .filter()
-        .isCompletedEqualTo(true)
-        .count();
+    final result =
+        await (_db.selectOnly(_db.todoTasks)
+              ..addColumns([_db.todoTasks.id.count()])
+              ..where(_db.todoTasks.isCompleted.equals(true)))
+            .map((row) => row.read(_db.todoTasks.id.count()))
+            .getSingle();
+    return result ?? 0;
   }
 
   /// Get count of incomplete todos
   Future<int> getIncompleteCount() async {
-    return await _isar.todoTasks
-        .filter()
-        .isCompletedEqualTo(false)
-        .count();
+    final result =
+        await (_db.selectOnly(_db.todoTasks)
+              ..addColumns([_db.todoTasks.id.count()])
+              ..where(_db.todoTasks.isCompleted.equals(false)))
+            .map((row) => row.read(_db.todoTasks.id.count()))
+            .getSingle();
+    return result ?? 0;
   }
 
   /// Get count of overdue todos
   Future<int> getOverdueCount() async {
-    return await _isar.todoTasks
-        .filter()
-        .isOverdueEqualTo(true)
-        .and()
-        .isCompletedEqualTo(false)
-        .count();
+    final result =
+        await (_db.selectOnly(_db.todoTasks)
+              ..addColumns([_db.todoTasks.id.count()])
+              ..where(
+                _db.todoTasks.isOverdue.equals(true) &
+                    _db.todoTasks.isCompleted.equals(false),
+              ))
+            .map((row) => row.read(_db.todoTasks.id.count()))
+            .getSingle();
+    return result ?? 0;
   }
 
   /// Get count of todos due today
   Future<int> getTodayCount() async {
-    return await _isar.todoTasks
-        .filter()
-        .isDueTodayEqualTo(true)
-        .and()
-        .isCompletedEqualTo(false)
-        .count();
+    final result =
+        await (_db.selectOnly(_db.todoTasks)
+              ..addColumns([_db.todoTasks.id.count()])
+              ..where(
+                _db.todoTasks.isDueToday.equals(true) &
+                    _db.todoTasks.isCompleted.equals(false),
+              ))
+            .map((row) => row.read(_db.todoTasks.id.count()))
+            .getSingle();
+    return result ?? 0;
   }
 
   // RECURRING TASKS
 
   /// Create a recurring task with pattern
-  Future<TodoTask> createRecurringTask({
-    required TodoTask template,
-    required int patternId,
+  Future<int> createRecurringTask({
+    required String title,
+    required ImportanceLevel importance,
+    required int recurringPatternId,
+    String? description,
     String? seriesId,
   }) async {
     final series = seriesId ?? _uuid.v4();
 
-    template.isRecurring = true;
-    template.isRecurringTemplate = true;
-    template.recurringPatternId = patternId;
-    template.recurringSeriesId = series;
-    template.isRecurringException = false;
-    template.isSkipped = false;
-    template.updateComputedProperties();
+    final now = DateTime.now();
+    final entry = TodoTasksCompanion(
+      uuid: Value(_uuid.v4()),
+      title: Value(title),
+      description: description != null
+          ? Value(description)
+          : const Value.absent(),
+      importance: Value(importance.name),
+      status: Value(TaskStatus.notStarted.name),
+      createdAt: Value(now),
+      isRecurring: const Value(true),
+      isRecurringTemplate: const Value(true),
+      recurringSeriesId: Value(series),
+      isCompleted: const Value(false),
+    );
 
-    await _isar.writeTxn(() async {
-      await _isar.todoTasks.put(template);
-    });
-
-    return template;
+    return await _db.into(_db.todoTasks).insert(entry);
   }
 
   /// Get all recurring templates
   Future<List<TodoTask>> getRecurringTemplates() async {
-    return await _isar.todoTasks
-        .filter()
-        .isRecurringTemplateEqualTo(true)
-        .findAll();
+    return await (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.isRecurringTemplate.equals(true))).get();
   }
 
   /// Get all instances of a recurring series
   Future<List<TodoTask>> getRecurringInstances(String seriesId) async {
-    return await _isar.todoTasks
-        .filter()
-        .recurringSeriesIdEqualTo(seriesId)
-        .and()
-        .isRecurringTemplateEqualTo(false)
-        .sortByDueDate()
-        .findAll();
+    return await (_db.select(_db.todoTasks)
+          ..where(
+            (tbl) =>
+                tbl.recurringSeriesId.equals(seriesId) &
+                tbl.isRecurringTemplate.equals(false),
+          )
+          ..orderBy([(t) => OrderingTerm(expression: t.dueDate)]))
+        .get();
   }
 
   /// Get the template for a recurring series
   Future<TodoTask?> getRecurringTemplate(String seriesId) async {
-    return await _isar.todoTasks
-        .filter()
-        .recurringSeriesIdEqualTo(seriesId)
-        .and()
-        .isRecurringTemplateEqualTo(true)
-        .findFirst();
-  }
-
-  /// Update a single instance
-  Future<void> updateSingleInstance(TodoTask instance) async {
-    instance.isRecurringException = true;
-    instance.updateComputedProperties();
-    await updateTodo(instance);
+    return await (_db.select(_db.todoTasks)..where(
+          (tbl) =>
+              tbl.recurringSeriesId.equals(seriesId) &
+              tbl.isRecurringTemplate.equals(true),
+        ))
+        .getSingleOrNull();
   }
 
   /// Update entire series
-  Future<void> updateEntireSeries(String seriesId, TodoTask updates) async {
-    final tasks = await _isar.todoTasks
-        .filter()
-        .recurringSeriesIdEqualTo(seriesId)
-        .findAll();
-
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        if (task.isRecurringException) continue; // Skip exceptions
-
-        task.title = updates.title;
-        task.description = updates.description;
-        task.importance = updates.importance;
-        task.updateComputedProperties();
-        await _isar.todoTasks.put(task);
-      }
-    });
+  Future<void> updateEntireSeries(
+    String seriesId, {
+    String? title,
+    String? description,
+    ImportanceLevel? importance,
+  }) async {
+    await (_db.update(_db.todoTasks)..where(
+          (tbl) =>
+              tbl.recurringSeriesId.equals(seriesId) &
+              tbl.isRecurringException.equals(false),
+        ))
+        .write(
+          TodoTasksCompanion(
+            title: title != null ? Value(title) : const Value.absent(),
+            description: description != null
+                ? Value(description)
+                : const Value.absent(),
+            importance: importance != null
+                ? Value(importance.name)
+                : const Value.absent(),
+          ),
+        );
   }
 
   /// Update future instances (from a specific instance onwards)
-  Future<void> updateFutureInstances(TodoTask fromInstance, TodoTask updates) async {
-    if (fromInstance.recurringSeriesId == null) return;
+  Future<void> updateFutureInstances(
+    int fromInstanceId, {
+    String? title,
+    String? description,
+    ImportanceLevel? importance,
+  }) async {
+    final fromTask = await getTodoById(fromInstanceId);
+    if (fromTask == null || fromTask.recurringSeriesId == null) return;
 
-    final tasks = await _isar.todoTasks
-        .filter()
-        .recurringSeriesIdEqualTo(fromInstance.recurringSeriesId!)
-        .and()
-        .isRecurringTemplateEqualTo(false)
-        .findAll();
+    final instances = await getRecurringInstances(fromTask.recurringSeriesId!);
+    final instanceNumber = fromTask.recurringInstanceNumber ?? 0;
 
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        if (task.isRecurringException) continue;
-        if (task.recurringInstanceNumber == null || fromInstance.recurringInstanceNumber == null) {
-          continue;
-        }
-        if (task.recurringInstanceNumber! < fromInstance.recurringInstanceNumber!) {
-          continue;
-        }
-
-        task.title = updates.title;
-        task.description = updates.description;
-        task.importance = updates.importance;
-        task.updateComputedProperties();
-        await _isar.todoTasks.put(task);
+    for (final instance in instances) {
+      if (instance.isRecurringException) continue;
+      if ((instance.recurringInstanceNumber ?? 0) >= instanceNumber) {
+        await updateTodo(
+          instance.id,
+          title: title,
+          description: description,
+          importance: importance,
+        );
       }
-    });
-  }
-
-  /// Delete a single instance
-  Future<bool> deleteSingleInstance(TodoTask instance) async {
-    return await deleteTodo(instance);
+    }
   }
 
   /// Delete entire series
   Future<int> deleteEntireSeries(String seriesId) async {
-    final tasks = await _isar.todoTasks
-        .filter()
-        .recurringSeriesIdEqualTo(seriesId)
-        .findAll();
-
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        await _isar.todoTasks.delete(task.id);
-      }
-    });
-
-    return tasks.length;
+    return await (_db.delete(
+      _db.todoTasks,
+    )..where((tbl) => tbl.recurringSeriesId.equals(seriesId))).go();
   }
 
   /// Delete this and future instances
-  Future<int> deleteFutureInstances(TodoTask fromInstance) async {
-    if (fromInstance.recurringSeriesId == null) return 0;
+  Future<int> deleteFutureInstances(int fromInstanceId) async {
+    final fromTask = await getTodoById(fromInstanceId);
+    if (fromTask == null || fromTask.recurringSeriesId == null) return 0;
 
-    final tasks = await _isar.todoTasks
-        .filter()
-        .recurringSeriesIdEqualTo(fromInstance.recurringSeriesId!)
-        .and()
-        .isRecurringTemplateEqualTo(false)
-        .findAll();
+    final instances = await getRecurringInstances(fromTask.recurringSeriesId!);
+    final instanceNumber = fromTask.recurringInstanceNumber ?? 0;
 
     var deletedCount = 0;
-
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        if (task.recurringInstanceNumber == null || fromInstance.recurringInstanceNumber == null) {
-          continue;
-        }
-        if (task.recurringInstanceNumber! >= fromInstance.recurringInstanceNumber!) {
-          await _isar.todoTasks.delete(task.id);
-          deletedCount++;
-        }
+    for (final instance in instances) {
+      if ((instance.recurringInstanceNumber ?? 0) >= instanceNumber) {
+        await deleteTodo(instance.id);
+        deletedCount++;
       }
-    });
+    }
 
     return deletedCount;
   }
 
   /// Skip an instance
-  Future<void> skipInstance(TodoTask instance) async {
-    instance.isSkipped = true;
-    instance.updateComputedProperties();
-    await updateTodo(instance);
+  Future<bool> skipInstance(int instanceId) async {
+    return await updateTodo(instanceId, isCompleted: true);
   }
 
   /// Postpone an instance to a new date
-  Future<void> postponeInstance(TodoTask instance, DateTime newDate) async {
-    instance.dueDate = newDate;
-    instance.isRecurringException = true;
-    instance.updateComputedProperties();
-    await updateTodo(instance);
+  Future<bool> postponeInstance(int instanceId, DateTime newDate) async {
+    return await updateTodo(instanceId, dueDate: newDate);
   }
 
   /// Cleanup old completed instances
   Future<int> cleanupOldInstances({int daysToKeep = 30}) async {
     final cutoffDate = DateTime.now().subtract(Duration(days: daysToKeep));
 
-    final oldInstances = await _isar.todoTasks
-        .filter()
-        .isRecurringEqualTo(true)
-        .and()
-        .isRecurringTemplateEqualTo(false)
-        .and()
-        .isCompletedEqualTo(true)
-        .and()
-        .isRecurringExceptionEqualTo(false)
-        .and()
-        .completedAtLessThan(cutoffDate)
-        .findAll();
-
-    await _isar.writeTxn(() async {
-      for (final task in oldInstances) {
-        await _isar.todoTasks.delete(task.id);
-      }
-    });
-
-    return oldInstances.length;
+    return await (_db.delete(_db.todoTasks)..where(
+          (tbl) =>
+              tbl.isRecurring.equals(true) &
+              tbl.isRecurringTemplate.equals(false) &
+              tbl.isCompleted.equals(true) &
+              tbl.isRecurringException.equals(false) &
+              tbl.completedAt.isSmallerThanValue(cutoffDate),
+        ))
+        .go();
   }
 
   /// Stream of recurring templates
   Stream<List<TodoTask>> watchRecurringTemplates() {
-    return _isar.todoTasks
-        .filter()
-        .isRecurringTemplateEqualTo(true)
-        .watch(fireImmediately: true);
+    return (_db.select(
+      _db.todoTasks,
+    )..where((tbl) => tbl.isRecurringTemplate.equals(true))).watch();
   }
 
   /// Get upcoming instances for a series
-  Future<List<TodoTask>> getUpcomingInstances(String seriesId, {int count = 10}) async {
+  Future<List<TodoTask>> getUpcomingInstances(
+    String seriesId, {
+    int count = 10,
+  }) async {
     final now = DateTime.now();
-    return await _isar.todoTasks
-        .filter()
-        .recurringSeriesIdEqualTo(seriesId)
-        .and()
-        .isRecurringTemplateEqualTo(false)
-        .and()
-        .isCompletedEqualTo(false)
-        .and()
-        .dueDateGreaterThan(now)
-        .sortByDueDate()
-        .limit(count)
-        .findAll();
+    return await (_db.select(_db.todoTasks)
+          ..where(
+            (tbl) =>
+                tbl.recurringSeriesId.equals(seriesId) &
+                tbl.isRecurringTemplate.equals(false) &
+                tbl.isCompleted.equals(false) &
+                tbl.dueDate.isBiggerThanValue(now),
+          )
+          ..orderBy([(t) => OrderingTerm(expression: t.dueDate)])
+          ..limit(count))
+        .get();
   }
 
   // BULK OPERATIONS
 
   /// Complete multiple tasks at once
-  Future<int> bulkComplete(List<TodoTask> tasks) async {
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        task.isCompleted = true;
-        task.completedAt = DateTime.now();
-        task.status = TaskStatus.completed;
-        task.updateComputedProperties();
-        await _isar.todoTasks.put(task);
-      }
-    });
-    return tasks.length;
+  Future<int> bulkComplete(List<int> taskIds) async {
+    return await (_db.update(
+      _db.todoTasks,
+    )..where((tbl) => tbl.id.isIn(taskIds))).write(
+      TodoTasksCompanion(
+        isCompleted: const Value(true),
+        completedAt: Value(DateTime.now()),
+        status: Value(TaskStatus.completed.name),
+      ),
+    );
   }
 
   /// Delete multiple tasks at once
-  Future<int> bulkDelete(List<TodoTask> tasks) async {
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        await _isar.todoTasks.delete(task.id);
-      }
-    });
-    return tasks.length;
+  Future<int> bulkDelete(List<int> taskIds) async {
+    return await (_db.delete(
+      _db.todoTasks,
+    )..where((tbl) => tbl.id.isIn(taskIds))).go();
   }
 
   /// Update importance for multiple tasks
-  Future<int> bulkUpdateImportance(List<TodoTask> tasks, ImportanceLevel importance) async {
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        task.importance = importance;
-        task.updateComputedProperties();
-        await _isar.todoTasks.put(task);
-      }
-    });
-    return tasks.length;
+  Future<int> bulkUpdateImportance(
+    List<int> taskIds,
+    ImportanceLevel importance,
+  ) async {
+    return await (_db.update(_db.todoTasks)
+          ..where((tbl) => tbl.id.isIn(taskIds)))
+        .write(TodoTasksCompanion(importance: Value(importance.name)));
   }
 
   /// Add a tag to multiple tasks
-  Future<int> bulkAddTag(List<TodoTask> tasks, TaskTag tag) async {
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        task.tags.add(tag);
-        await task.tags.save();
-      }
-    });
-    return tasks.length;
+  Future<int> bulkAddTag(List<int> taskIds, int tagId) async {
+    var count = 0;
+    for (final taskId in taskIds) {
+      await _db
+          .into(_db.todoTaskTags)
+          .insert(
+            TodoTaskTagsCompanion(taskId: Value(taskId), tagId: Value(tagId)),
+            onConflict: DoNothing(),
+          );
+      count++;
+    }
+    return count;
   }
 
   /// Remove a tag from multiple tasks
-  Future<int> bulkRemoveTag(List<TodoTask> tasks, TaskTag tag) async {
-    await _isar.writeTxn(() async {
-      for (final task in tasks) {
-        task.tags.remove(tag);
-        await task.tags.save();
-      }
-    });
-    return tasks.length;
+  Future<int> bulkRemoveTag(List<int> taskIds, int tagId) async {
+    return await (_db.delete(
+      _db.todoTaskTags,
+    )..where((tbl) => tbl.taskId.isIn(taskIds) & tbl.tagId.equals(tagId))).go();
+  }
+
+  // HELPER METHODS
+
+  bool _isDueToday(DateTime? dueDate) {
+    if (dueDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    return date.isAtSameMomentAs(today);
+  }
+
+  bool _isOverdue(DateTime? dueDate) {
+    if (dueDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    return date.isBefore(today);
   }
 }

@@ -1,9 +1,7 @@
 import 'package:workmanager/workmanager.dart';
-import 'package:isar/isar.dart';
-import 'package:path_provider/path_provider.dart';
-import '../models/todo_task.dart';
-import '../models/recurring_pattern.dart';
-import '../models/task_tag.dart';
+import 'dart:developer' as developer;
+import '../repositories/todo_repository.dart';
+import 'database_service.dart';
 import 'recurrence_service.dart';
 
 /// Background task identifiers
@@ -15,6 +13,9 @@ const String dailyTaskCheckTask = 'dailyTaskCheck';
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
+      // Initialize database for this isolate
+      await DatabaseService.initialize();
+
       switch (task) {
         case recurringTaskGenerationTask:
           await _generateRecurringInstances();
@@ -27,59 +28,45 @@ void callbackDispatcher() {
       }
       return true;
     } catch (e) {
-      print('Background task error: $e');
+      developer.log('Background task error', error: e);
       return false;
+    } finally {
+      // Optional: Close DB if we want to be clean, but often kept open until isolate dies
+      // await DatabaseService.close();
     }
   });
 }
 
 /// Generate missing recurring task instances
 Future<void> _generateRecurringInstances() async {
-  final dir = await getApplicationDocumentsDirectory();
-  final isar = await Isar.open(
-    [TodoTaskSchema, RecurringPatternSchema, TaskTagSchema],
-    directory: dir.path,
-    name: 'todo_db',
-  );
-
   try {
-    final recurrenceService = RecurrenceService(isar);
+    final db = DatabaseService.instance;
+    final todoRepo = TodoRepository(db);
+    final recurrenceService = RecurrenceService(db, todoRepo);
     await recurrenceService.generateMissingInstances();
-  } finally {
-    await isar.close();
+  } catch (e) {
+    developer.log('Error generating recurring instances', error: e);
+    rethrow;
   }
 }
 
 /// Perform daily task maintenance
 Future<void> _performDailyTaskCheck() async {
-  final dir = await getApplicationDocumentsDirectory();
-  final isar = await Isar.open(
-    [TodoTaskSchema, RecurringPatternSchema, TaskTagSchema],
-    directory: dir.path,
-    name: 'todo_db',
-  );
-
   try {
+    final db = DatabaseService.instance;
+    final todoRepo = TodoRepository(db);
+
     // Clean up old completed tasks (older than 90 days)
-    final cutoffDate = DateTime.now().subtract(const Duration(days: 90));
-
-    await isar.writeTxn(() async {
-      final oldCompletedTasks = await isar.todoTasks
-          .filter()
-          .isCompletedEqualTo(true)
-          .completedAtLessThan(cutoffDate)
-          .findAll();
-
-      for (final task in oldCompletedTasks) {
-        await isar.todoTasks.delete(task.id);
-      }
-    });
+    // RecurrenceService might have this logic? Or TodoRepository?
+    // TodoRepository has cleanupOldInstances.
+    await todoRepo.cleanupOldInstances(daysToKeep: 90);
 
     // Generate new recurring instances
-    final recurrenceService = RecurrenceService(isar);
+    final recurrenceService = RecurrenceService(db, todoRepo);
     await recurrenceService.generateMissingInstances();
-  } finally {
-    await isar.close();
+  } catch (e) {
+    developer.log('Error performing daily task check', error: e);
+    rethrow;
   }
 }
 
@@ -91,10 +78,7 @@ class BackgroundTaskService {
   static Future<void> initialize() async {
     if (_isInitialized) return;
 
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: false,
-    );
+    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
 
     _isInitialized = true;
   }
@@ -139,9 +123,7 @@ class BackgroundTaskService {
     await Workmanager().registerOneOffTask(
       'immediate_recurring_generation',
       recurringTaskGenerationTask,
-      constraints: Constraints(
-        networkType: NetworkType.not_required,
-      ),
+      constraints: Constraints(networkType: NetworkType.not_required),
     );
   }
 

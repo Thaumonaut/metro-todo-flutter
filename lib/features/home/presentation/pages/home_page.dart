@@ -87,7 +87,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                     onTaskEdit: (task) => _navigateToTaskDetail(task.id),
                     onTaskComplete: (task) => _completeTask(task),
                     onTaskDelete: (task) => _deleteTask(task),
-                    onTaskImportanceChange: (task, importance) => _updateTaskImportance(task, importance),
+                    onTaskImportanceChange: (task, importance) =>
+                        _updateTaskImportance(task, importance),
                   ),
 
                   // Section 2: All Tasks
@@ -100,13 +101,12 @@ class _HomePageState extends ConsumerState<HomePage> {
                     onTaskEdit: (task) => _navigateToTaskDetail(task.id),
                     onTaskComplete: (task) => _completeTask(task),
                     onTaskDelete: (task) => _deleteTask(task),
-                    onTaskImportanceChange: (task, importance) => _updateTaskImportance(task, importance),
+                    onTaskImportanceChange: (task, importance) =>
+                        _updateTaskImportance(task, importance),
                   ),
 
                   // Section 3: Recurring Tasks
-                  RecurringSection(
-                    width: screenWidth,
-                  ),
+                  RecurringSection(width: screenWidth),
 
                   // Section 4: Completed Tasks
                   TaskListSection(
@@ -117,7 +117,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                     emptyStateMessage: 'No completed tasks yet',
                     onTaskEdit: (task) => _navigateToTaskDetail(task.id),
                     onTaskDelete: (task) => _deleteTask(task),
-                    onTaskImportanceChange: (task, importance) => _updateTaskImportance(task, importance),
+                    onTaskImportanceChange: (task, importance) =>
+                        _updateTaskImportance(task, importance),
                   ),
 
                   // Section 5: Settings
@@ -197,9 +198,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _navigateToTaskForm() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const TaskFormPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const TaskFormPage()),
     );
   }
 
@@ -207,9 +206,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _navigateToTaskDetail(int taskId) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => TaskDetailPage(taskId: taskId),
-      ),
+      MaterialPageRoute(builder: (context) => TaskDetailPage(taskId: taskId)),
     );
   }
 
@@ -221,16 +218,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _navigateToTagsPage() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const TagsPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const TagsPage()),
     );
   }
 
   Future<void> _navigateToSearchPage() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const SearchPage())
+      MaterialPageRoute(builder: (context) => const SearchPage()),
     );
   }
 
@@ -286,10 +281,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Delete',
-              style: TextStyle(color: AppColors.error),
-            ),
+            child: Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -326,7 +318,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _showQuickActionsMenu() {
     QuickActionsMenu.show(
       context,
-      onUrgentTap: () => _controller.navigateToPage(2), // Now navigates to Recurring
+      onUrgentTap: () =>
+          _controller.navigateToPage(2), // Now navigates to Recurring
       onTagsTap: () => _navigateToTagsPage(),
       onSearchTap: () {
         _navigateToSearchPage();
@@ -336,11 +329,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   /// Update a task's importance level
-  Future<void> _updateTaskImportance(TodoTask task, ImportanceLevel importance) async {
+  Future<void> _updateTaskImportance(
+    TodoTask task,
+    ImportanceLevel importance,
+  ) async {
     try {
-      task.importance = importance;
+      final updatedTask = task.copyWith(importance: importance.name);
       final updateTask = ref.read(updateTaskProvider);
-      await updateTask(task);
+      await updateTask(updatedTask);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

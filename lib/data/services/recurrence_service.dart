@@ -1,15 +1,17 @@
 import 'dart:math';
-import 'package:isar/isar.dart';
+import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
-import '../models/recurring_pattern.dart';
-import '../models/todo_task.dart';
+import '../database/database.dart';
+import '../models/recurring_pattern.dart' show RecurrenceType;
+import '../repositories/todo_repository.dart';
 
 /// Service for handling recurrence calculations and instance generation
 class RecurrenceService {
-  final Isar _isar;
+  final AppDatabase _db;
+  final TodoRepository _todoRepository;
   final _uuid = const Uuid();
 
-  RecurrenceService(this._isar);
+  RecurrenceService(this._db, this._todoRepository);
 
   /// Calculate next N occurrence dates based on pattern
   List<DateTime> calculateOccurrences(
@@ -42,7 +44,13 @@ class RecurrenceService {
   DateTime? getNextOccurrence(RecurringPattern pattern, DateTime after) {
     DateTime next;
 
-    switch (pattern.type) {
+    // Parse the type from string
+    final type = RecurrenceType.values.firstWhere(
+      (e) => e.name == pattern.type,
+      orElse: () => RecurrenceType.daily,
+    );
+
+    switch (type) {
       case RecurrenceType.daily:
         next = after.add(Duration(days: pattern.interval));
         break;
@@ -73,11 +81,12 @@ class RecurrenceService {
 
   /// Calculate next weekly occurrence
   DateTime _getNextWeeklyOccurrence(RecurringPattern pattern, DateTime after) {
-    if (pattern.daysOfWeek == null || pattern.daysOfWeek!.isEmpty) {
+    final daysOfWeek = _parseIntList(pattern.daysOfWeek);
+    if (daysOfWeek == null || daysOfWeek.isEmpty) {
       return after.add(Duration(days: 7 * pattern.interval));
     }
 
-    final sortedDays = List<int>.from(pattern.daysOfWeek!)..sort();
+    final sortedDays = List<int>.from(daysOfWeek)..sort();
     final currentWeekday = after.weekday - 1; // 0=Monday, 6=Sunday
 
     // Find next day in current week
@@ -100,8 +109,9 @@ class RecurrenceService {
       return _getLastDayOfMonth(after.year, after.month + pattern.interval);
     }
 
-    if (pattern.daysOfMonth != null && pattern.daysOfMonth!.isNotEmpty) {
-      return _getNextMonthlyByDayOfMonth(pattern, after);
+    final daysOfMonth = _parseIntList(pattern.daysOfMonth);
+    if (daysOfMonth != null && daysOfMonth.isNotEmpty) {
+      return _getNextMonthlyByDayOfMonth(pattern, daysOfMonth, after);
     }
 
     if (pattern.nthWeekday != null && pattern.weekdayOfMonth != null) {
@@ -113,8 +123,12 @@ class RecurrenceService {
   }
 
   /// Get next monthly occurrence by day of month
-  DateTime _getNextMonthlyByDayOfMonth(RecurringPattern pattern, DateTime after) {
-    final sortedDays = List<int>.from(pattern.daysOfMonth!)..sort();
+  DateTime _getNextMonthlyByDayOfMonth(
+    RecurringPattern pattern,
+    List<int> daysOfMonth,
+    DateTime after,
+  ) {
+    final sortedDays = List<int>.from(daysOfMonth)..sort();
 
     // Try to find a day in the current month
     for (final day in sortedDays) {
@@ -132,7 +146,10 @@ class RecurrenceService {
   }
 
   /// Get next monthly occurrence by nth weekday
-  DateTime _getNextMonthlyByNthWeekday(RecurringPattern pattern, DateTime after) {
+  DateTime _getNextMonthlyByNthWeekday(
+    RecurringPattern pattern,
+    DateTime after,
+  ) {
     final nextMonth = after.month + pattern.interval;
     final nextYear = after.year + (nextMonth - 1) ~/ 12;
     final adjustedMonth = ((nextMonth - 1) % 12) + 1;
@@ -209,7 +226,7 @@ class RecurrenceService {
   }
 
   /// Generate task instances for a recurring pattern
-  Future<List<TodoTask>> generateInstances(
+  Future<List<TodoTasksCompanion>> generateInstances(
     TodoTask template,
     RecurringPattern pattern, {
     DateTime? until,
@@ -227,34 +244,36 @@ class RecurrenceService {
       until: untilDate,
     );
 
-    final instances = <TodoTask>[];
+    final instances = <TodoTasksCompanion>[];
     final seriesId = template.recurringSeriesId ?? _uuid.v4();
 
     for (var i = 0; i < occurrences.length; i++) {
       final occurrence = occurrences[i];
 
       // Skip the first occurrence if it's the template's due date
-      if (i == 0 && occurrence == template.dueDate) continue;
+      // (assuming constraints check strict equality)
+      // Actually with Drift/DateTime often best to use difference checks
+      if (i == 0 && occurrence.isAtSameMomentAs(template.dueDate!)) continue;
 
-      final instance = TodoTask()
-        ..uuid = _uuid.v4()
-        ..title = template.title
-        ..description = template.description
-        ..importance = template.importance
-        ..status = template.status
-        ..dueDate = occurrence
-        ..createdAt = DateTime.now()
-        ..isCompleted = false
-        ..isRecurring = true
-        ..isRecurringTemplate = false
-        ..recurringPatternId = pattern.id
-        ..recurringSeriesId = seriesId
-        ..recurringOriginalDate = occurrence
-        ..recurringInstanceNumber = i
-        ..isRecurringException = false
-        ..isSkipped = false;
+      final instance = TodoTasksCompanion(
+        uuid: Value(_uuid.v4()),
+        title: Value(template.title),
+        description: Value(template.description),
+        importance: Value(template.importance),
+        status: Value(template.status),
+        dueDate: Value(occurrence),
+        createdAt: Value(DateTime.now()),
+        isCompleted: const Value(false),
+        isRecurring: const Value(true),
+        isRecurringTemplate: const Value(false),
+        recurringPatternId: Value(pattern.id),
+        recurringSeriesId: Value(seriesId),
+        recurringOriginalDate: Value(occurrence),
+        recurringInstanceNumber: Value(i),
+        isRecurringException: const Value(false),
+        isSkipped: const Value(false),
+      );
 
-      instance.updateComputedProperties();
       instances.add(instance);
     }
 
@@ -263,49 +282,98 @@ class RecurrenceService {
 
   /// Generate missing instances for all active recurring patterns
   Future<void> generateMissingInstances() async {
-    final templates = await _isar.todoTasks
-        .filter()
-        .isRecurringTemplateEqualTo(true)
-        .findAll();
+    final templates = await _todoRepository.getRecurringTemplates();
 
     for (final template in templates) {
       if (template.recurringPatternId == null) continue;
 
-      final pattern = await _isar.recurringPatterns.get(template.recurringPatternId!);
+      final pattern =
+          await (_db.select(_db.recurringPatterns)
+                ..where((tbl) => tbl.id.equals(template.recurringPatternId!)))
+              .getSingleOrNull();
       if (pattern == null) continue;
 
       // Check if pattern is still active
-      if (pattern.endDate != null && pattern.endDate!.isBefore(DateTime.now())) {
+      if (pattern.endDate != null &&
+          pattern.endDate!.isBefore(DateTime.now())) {
         continue;
       }
 
       // Find the latest instance
-      final existingInstances = await _isar.todoTasks
-          .filter()
-          .recurringSeriesIdEqualTo(template.recurringSeriesId)
-          .and()
-          .isRecurringTemplateEqualTo(false)
-          .sortByDueDateDesc()
-          .findAll();
+      final existingInstances = await _todoRepository.getRecurringInstances(
+        template.recurringSeriesId!,
+      );
 
-      final latestDate = existingInstances.isNotEmpty && existingInstances.first.dueDate != null
-          ? existingInstances.first.dueDate!
+      final latestDate =
+          existingInstances.isNotEmpty && existingInstances.last.dueDate != null
+          ? existingInstances.last.dueDate!
           : template.dueDate;
 
       if (latestDate == null) continue;
 
       // Generate instances from latest date up to 90 days ahead
-      final instances = await generateInstances(
-        template,
+      // We need to pass the 'template' but with 'latestDate' as the starting point?
+      // calculateOccurrences starts from startDate.
+      // So if startDate is latestDate, we get next ones.
+
+      final until = DateTime.now().add(const Duration(days: 90));
+      final occurrences = calculateOccurrences(
         pattern,
-        until: DateTime.now().add(const Duration(days: 90)),
+        latestDate,
+        until: until,
+        count: 90,
       );
 
+      // We need to generate companions
+      final instances = <TodoTasksCompanion>[];
+      // We need accurate recurringInstanceNumber, so we might need to know the last one
+      var nextInstanceNum =
+          (existingInstances.isNotEmpty
+              ? existingInstances.last.recurringInstanceNumber ?? 0
+              : 0) +
+          1;
+
+      for (final occurrence in occurrences) {
+        if (occurrence.isAtSameMomentAs(latestDate)) continue;
+
+        instances.add(
+          TodoTasksCompanion(
+            uuid: Value(_uuid.v4()),
+            title: Value(template.title),
+            description: Value(template.description),
+            importance: Value(template.importance),
+            status: Value(template.status),
+            dueDate: Value(occurrence),
+            createdAt: Value(DateTime.now()),
+            isCompleted: const Value(false),
+            isRecurring: const Value(true),
+            isRecurringTemplate: const Value(false),
+            recurringPatternId: Value(pattern.id),
+            recurringSeriesId: Value(template.recurringSeriesId),
+            recurringOriginalDate: Value(occurrence),
+            recurringInstanceNumber: Value(nextInstanceNum++),
+            isRecurringException: const Value(false),
+            isSkipped: const Value(false),
+          ),
+        );
+      }
+
       if (instances.isNotEmpty) {
-        await _isar.writeTxn(() async {
-          await _isar.todoTasks.putAll(instances);
+        await _db.batch((batch) {
+          batch.insertAll(_db.todoTasks, instances);
         });
       }
     }
   }
+
+  List<int>? _parseIntList(String? value) {
+    if (value == null || value.isEmpty) return null;
+    try {
+      return value.split(',').map((e) => int.parse(e.trim())).toList();
+    } catch (e) {
+      return null;
+    }
+  }
 }
+
+// Needed enum for switch cases since Drift just stores String

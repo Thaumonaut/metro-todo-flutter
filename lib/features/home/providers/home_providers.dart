@@ -1,20 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/providers/repository_providers.dart';
-import '../../../data/models/todo_task.dart';
-import '../../../data/models/task_tag.dart';
+import '../../../data/database/database.dart'; // TodoTask and TaskTag
+import '../../../data/models/importance_level.dart';
+
+/// Helper to get importance value from string
+int _getImportanceValue(String importanceName) {
+  try {
+    return ImportanceLevel.values.byName(importanceName).value;
+  } catch (_) {
+    return ImportanceLevel.low.value;
+  }
+}
 
 /// Stream provider for tasks due today
 /// Filters out recurring instances to avoid duplicates
 final todayTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
-    return todos.where((todo) =>
-      todo.isDueToday &&
-      !todo.isCompleted &&
-      // Show non-recurring tasks OR recurring templates only
-      (!todo.isRecurring || todo.isRecurringTemplate)
-    ).toList()
-      ..sort((a, b) => b.importance.value.compareTo(a.importance.value));
+    return todos
+        .where(
+          (todo) =>
+              todo.isDueToday &&
+              !todo.isCompleted &&
+              // Show non-recurring tasks OR recurring templates only
+              (!todo.isRecurring || todo.isRecurringTemplate),
+        )
+        .toList()
+      ..sort(
+        (a, b) => _getImportanceValue(
+          b.importance,
+        ).compareTo(_getImportanceValue(a.importance)),
+      );
   });
 });
 
@@ -23,11 +39,14 @@ final todayTasksProvider = StreamProvider<List<TodoTask>>((ref) {
 final allTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
-    return todos.where((todo) =>
-      !todo.isCompleted &&
-      // Show non-recurring tasks OR recurring templates only (hide instances)
-      (!todo.isRecurring || todo.isRecurringTemplate)
-    ).toList()
+    return todos
+        .where(
+          (todo) =>
+              !todo.isCompleted &&
+              // Show non-recurring tasks OR recurring templates only (hide instances)
+              (!todo.isRecurring || todo.isRecurringTemplate),
+        )
+        .toList()
       ..sort((a, b) {
         // Sort by due date first (overdue first, then by date), then by importance
         if (a.isOverdue != b.isOverdue) {
@@ -39,7 +58,9 @@ final allTasksProvider = StreamProvider<List<TodoTask>>((ref) {
         }
         if (a.dueDate != null && b.dueDate == null) return -1;
         if (a.dueDate == null && b.dueDate != null) return 1;
-        return b.importance.value.compareTo(a.importance.value);
+        return _getImportanceValue(
+          b.importance,
+        ).compareTo(_getImportanceValue(a.importance));
       });
   });
 });
@@ -48,10 +69,18 @@ final allTasksProvider = StreamProvider<List<TodoTask>>((ref) {
 final urgentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
-    return todos.where((todo) =>
-      !todo.isCompleted && todo.importance.value >= 2 // High or Critical
-    ).toList()
-      ..sort((a, b) => b.importance.value.compareTo(a.importance.value));
+    return todos
+        .where(
+          (todo) =>
+              !todo.isCompleted &&
+              _getImportanceValue(todo.importance) >= 2, // High or Critical
+        )
+        .toList()
+      ..sort(
+        (a, b) => _getImportanceValue(
+          b.importance,
+        ).compareTo(_getImportanceValue(a.importance)),
+      );
   });
 });
 
@@ -69,14 +98,16 @@ final homeRecurringInstancesProvider = StreamProvider<List<TodoTask>>((ref) {
     final twoWeeksLater = now.add(const Duration(days: 14));
 
     return todos
-        .where((t) =>
-            t.isRecurring &&
-            !t.isRecurringTemplate &&
-            !t.isCompleted &&
-            !t.isSkipped &&
-            t.dueDate != null &&
-            t.dueDate!.isAfter(now.subtract(const Duration(days: 1))) &&
-            t.dueDate!.isBefore(twoWeeksLater))
+        .where(
+          (t) =>
+              t.isRecurring &&
+              !t.isRecurringTemplate &&
+              !t.isCompleted &&
+              !t.isSkipped &&
+              t.dueDate != null &&
+              t.dueDate!.isAfter(now.subtract(const Duration(days: 1))) &&
+              t.dueDate!.isBefore(twoWeeksLater),
+        )
         .toList()
       ..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
   });
@@ -87,9 +118,9 @@ final recentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
     // Filter out recurring instances, keep only templates
-    final filteredTodos = todos.where((todo) =>
-      !todo.isRecurring || todo.isRecurringTemplate
-    ).toList();
+    final filteredTodos = todos
+        .where((todo) => !todo.isRecurring || todo.isRecurringTemplate)
+        .toList();
     final sortedTodos = List<TodoTask>.from(filteredTodos)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return sortedTodos.take(10).toList();
@@ -100,8 +131,11 @@ final recentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
 final completedTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
-    return todos.where((todo) => todo.isCompleted).toList()
-      ..sort((a, b) => (b.completedAt ?? b.createdAt).compareTo(a.completedAt ?? a.createdAt));
+    return todos.where((todo) => todo.isCompleted).toList()..sort(
+      (a, b) => (b.completedAt ?? b.createdAt).compareTo(
+        a.completedAt ?? a.createdAt,
+      ),
+    );
   });
 });
 
@@ -111,27 +145,39 @@ final weeklyStatsProvider = FutureProvider<WeeklyStats>((ref) async {
 
   final now = DateTime.now();
   final weekStart = now.subtract(Duration(days: now.weekday - 1));
-  final weekStartDate = DateTime(weekStart.year, weekStart.month, weekStart.day);
+  final weekStartDate = DateTime(
+    weekStart.year,
+    weekStart.month,
+    weekStart.day,
+  );
 
   final allTodos = await repository.getAllTodos();
 
   // Count tasks created this week
-  final createdThisWeek = allTodos.where((todo) =>
-    todo.createdAt.isAfter(weekStartDate)
-  ).length;
+  final createdThisWeek = allTodos
+      .where((todo) => todo.createdAt.isAfter(weekStartDate))
+      .length;
 
   // Count tasks completed this week
-  final completedThisWeek = allTodos.where((todo) =>
-    todo.completedAt != null && todo.completedAt!.isAfter(weekStartDate)
-  ).length;
+  final completedThisWeek = allTodos
+      .where(
+        (todo) =>
+            todo.completedAt != null &&
+            todo.completedAt!.isAfter(weekStartDate),
+      )
+      .length;
 
   // Count tasks due this week
   final dueThisWeek = allTodos.where((todo) {
     if (todo.dueDate == null) return false;
-    final dueDate = DateTime(todo.dueDate!.year, todo.dueDate!.month, todo.dueDate!.day);
+    final dueDate = DateTime(
+      todo.dueDate!.year,
+      todo.dueDate!.month,
+      todo.dueDate!.day,
+    );
     final weekEnd = weekStartDate.add(const Duration(days: 7));
     return dueDate.isAfter(weekStartDate.subtract(const Duration(days: 1))) &&
-           dueDate.isBefore(weekEnd);
+        dueDate.isBefore(weekEnd);
   }).length;
 
   return WeeklyStats(
@@ -146,10 +192,12 @@ final topTagsProvider = FutureProvider<List<TagStats>>((ref) async {
   final tagRepository = ref.watch(tagRepositoryProvider);
   final tags = await tagRepository.getTagsSortedByUsage();
 
-  return tags.take(5).map((tag) => TagStats(
-    tag: tag,
-    taskCount: tag.tasks.length,
-  )).toList();
+  final stats = <TagStats>[];
+  for (final tag in tags.take(5)) {
+    final count = await tagRepository.getTagUsageCount(tag.id);
+    stats.add(TagStats(tag: tag, taskCount: count));
+  }
+  return stats;
 });
 
 /// Data class for weekly statistics
@@ -170,8 +218,5 @@ class TagStats {
   final TaskTag tag;
   final int taskCount;
 
-  TagStats({
-    required this.tag,
-    required this.taskCount,
-  });
+  TagStats({required this.tag, required this.taskCount});
 }

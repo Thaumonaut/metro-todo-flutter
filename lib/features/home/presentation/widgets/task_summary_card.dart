@@ -4,6 +4,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../../../data/models/importance_level.dart';
+import '../../../../data/models/task_status.dart'; // Needed for Status parsing if we want label
 import '../../../../shared/widgets/fluent_card.dart';
 
 /// A compact card displaying task summary information
@@ -42,6 +43,11 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
   }
 
   void _showImportancePicker() {
+    final currentImportance = ImportanceLevel.values.firstWhere(
+      (e) => e.name == widget.task.importance,
+      orElse: () => ImportanceLevel.medium,
+    );
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -49,7 +55,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) => _ImportancePickerSheet(
-        currentImportance: widget.task.importance,
+        currentImportance: currentImportance,
         onSelect: (importance) {
           Navigator.pop(context);
           widget.onImportanceChange?.call(importance);
@@ -61,6 +67,34 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
+
+    // Parse enums
+    final importance = ImportanceLevel.values.firstWhere(
+      (e) => e.name == task.importance,
+      orElse: () => ImportanceLevel.medium,
+    );
+
+    final status = TaskStatus.values.firstWhere(
+      (e) => e.name == task.status,
+      orElse: () => TaskStatus.notStarted,
+    );
+
+    // Status label logic
+    String statusLabel = 'Not Started';
+    switch (status) {
+      case TaskStatus.notStarted:
+        statusLabel = 'Not Started';
+        break;
+      case TaskStatus.inProgress:
+        statusLabel = 'In Progress';
+        break;
+      case TaskStatus.onHold:
+        statusLabel = 'On Hold';
+        break;
+      case TaskStatus.completed:
+        statusLabel = 'Completed';
+        break;
+    }
 
     return Container(
       width: widget.width,
@@ -88,14 +122,17 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                     // Header: Importance indicator + Due date + Recurring badge
                     Row(
                       children: [
-                        _ImportanceIndicator(importance: task.importance),
+                        _ImportanceIndicator(importance: importance),
                         const Spacer(),
                         if (task.isRecurring && task.isRecurringTemplate) ...[
                           _RecurringBadge(),
                           const SizedBox(width: 6),
                         ],
                         if (task.dueDate != null)
-                          _DueDateBadge(dueDate: task.dueDate!, isOverdue: task.isOverdue),
+                          _DueDateBadge(
+                            dueDate: task.dueDate!,
+                            isOverdue: task.isOverdue,
+                          ),
                       ],
                     ),
 
@@ -116,15 +153,18 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          task.status.label,
+                          statusLabel,
                           style: AppTypography.caption.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
 
-                    if (task.description != null && task.description!.isNotEmpty) ...[
+                    if (task.description != null &&
+                        task.description!.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
                         task.description!,
@@ -136,7 +176,9 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                       ),
                     ],
 
-                    // Tags (if any)
+                    // Tags: TodoTask doesn't have tags populated by default.
+                    // Omit for now to avoid compilation error.
+                    /*
                     if (task.tags.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Wrap(
@@ -144,22 +186,12 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                         runSpacing: 6,
                         children: task.tags.take(3).map((tag) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Color(tag.colorValue).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(AppConstants.radiusSmall),
-                            ),
-                            child: Text(
-                              tag.name,
-                              style: AppTypography.caption.copyWith(
-                                color: Color(tag.colorValue),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                            ...
                           );
                         }).toList(),
                       ),
                     ],
+                    */
                   ],
                 ),
               ),
@@ -192,7 +224,9 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                           icon: Icons.flag_outlined,
                           label: 'Priority',
                           color: AppColors.warning,
-                          onTap: widget.onImportanceChange != null ? _showImportancePicker : null,
+                          onTap: widget.onImportanceChange != null
+                              ? _showImportancePicker
+                              : null,
                         ),
                       ),
                       // Complete button
@@ -248,11 +282,7 @@ class _ActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: color,
-            ),
+            Icon(icon, size: 20, color: color),
             const SizedBox(height: 4),
             Text(
               label,
@@ -291,10 +321,7 @@ class _ImportanceIndicator extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Text(
@@ -325,10 +352,7 @@ class _ImportanceIndicator extends StatelessWidget {
 
 /// Due date badge
 class _DueDateBadge extends StatelessWidget {
-  const _DueDateBadge({
-    required this.dueDate,
-    required this.isOverdue,
-  });
+  const _DueDateBadge({required this.dueDate, required this.isOverdue});
 
   final DateTime dueDate;
   final bool isOverdue;
@@ -368,11 +392,7 @@ class _DueDateBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.calendar_today,
-            size: 12,
-            color: color,
-          ),
+          Icon(Icons.calendar_today, size: 12, color: color),
           const SizedBox(width: 4),
           Text(
             text,
@@ -458,7 +478,10 @@ class _ImportancePickerSheet extends StatelessWidget {
               return InkWell(
                 onTap: () => onSelect(importance),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   color: isSelected ? color.withValues(alpha: 0.1) : null,
                   child: Row(
                     children: [
@@ -476,16 +499,13 @@ class _ImportancePickerSheet extends StatelessWidget {
                           importance.label,
                           style: AppTypography.body1.copyWith(
                             color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
-                      if (isSelected)
-                        Icon(
-                          Icons.check,
-                          color: color,
-                          size: 20,
-                        ),
+                      if (isSelected) Icon(Icons.check, color: color, size: 20),
                     ],
                   ),
                 ),

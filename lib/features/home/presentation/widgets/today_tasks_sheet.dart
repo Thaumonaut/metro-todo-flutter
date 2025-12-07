@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../data/models/todo_task.dart';
 import '../../providers/home_providers.dart';
+import '../../../../data/database/database.dart';
 import 'task_summary_card.dart';
 import '../../../tasks/presentation/pages/task_detail_page.dart';
 
@@ -68,7 +68,9 @@ class TodayTasksSheet extends ConsumerWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -116,7 +118,9 @@ class TodayTasksSheet extends ConsumerWidget {
           Icon(
             Icons.check_circle_outline,
             size: 48,
-            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
@@ -135,7 +139,9 @@ class TodayTasksSheet extends ConsumerWidget {
     return Center(
       child: Text(
         'Error loading tasks',
-        style: AppTypography.body1.copyWith(color: Theme.of(context).colorScheme.error),
+        style: AppTypography.body1.copyWith(
+          color: Theme.of(context).colorScheme.error,
+        ),
       ),
     );
   }
@@ -160,8 +166,7 @@ class TodayTasksSheet extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      TaskDetailPage(taskId: tasks[index].id),
+                  builder: (context) => TaskDetailPage(taskId: tasks[index].id),
                 ),
               );
             },

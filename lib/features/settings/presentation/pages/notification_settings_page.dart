@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../../core/providers/preferences_providers.dart';
 import '../../../../data/services/notification_service.dart';
 
@@ -218,25 +217,20 @@ class _NotificationSettingsPageState
   }
 
   Future<void> _sendTestNotification() async {
-    final notifications = FlutterLocalNotificationsPlugin();
-    await notifications.show(
-      999999,
-      'Test Notification',
-      'This is a test notification from Metro Todo',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'test',
-          'Test Notifications',
-          channelDescription: 'Test notification channel',
-        ),
-        linux: LinuxNotificationDetails(),
-      ),
-    );
+    try {
+      await NotificationService().showTestNotification();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Test notification sent!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Test notification sent!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sending notification: $e')),
+        );
+      }
     }
   }
 }

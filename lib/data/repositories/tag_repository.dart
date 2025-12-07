@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:isar/isar.dart';
-import '../models/task_tag.dart';
+import 'package:drift/drift.dart';
+import '../database/database.dart';
 
-/// Repository for managing task tags with Isar database
+/// Repository for managing task tags with Drift database
 class TagRepository {
-  final Isar _isar;
+  final AppDatabase _db;
 
-  TagRepository(this._isar);
+  TagRepository(this._db);
 
   // CREATE
 
   /// Create a new tag
-  Future<TaskTag> createTag({
+  Future<int> createTag({
     required String name,
     required Color color,
     String? icon,
@@ -22,174 +22,203 @@ class TagRepository {
       throw Exception('Tag with name "$name" already exists');
     }
 
-    final tag = TaskTag()
-      ..name = name
-      ..colorValue = color.toARGB32()
-      ..icon = icon;
+    final entry = TaskTagsCompanion(
+      name: Value(name),
+      colorValue: Value(color.value), // ignore: deprecated_member_use
+      icon: icon != null ? Value(icon) : const Value.absent(),
+    );
 
-    await _isar.writeTxn(() async {
-      await _isar.taskTags.put(tag);
-    });
-
-    return tag;
+    return await _db.into(_db.taskTags).insert(entry);
   }
 
   // READ
 
   /// Get all tags
   Future<List<TaskTag>> getAllTags() async {
-    return await _isar.taskTags.where().findAll();
+    return await _db.select(_db.taskTags).get();
   }
 
   /// Get a tag by ID
-  Future<TaskTag?> getTagById(Id id) async {
-    return await _isar.taskTags.get(id);
+  Future<TaskTag?> getTagById(int id) async {
+    return await (_db.select(
+      _db.taskTags,
+    )..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
   }
 
   /// Get a tag by name
   Future<TaskTag?> getTagByName(String name) async {
-    return await _isar.taskTags
-        .filter()
-        .nameEqualTo(name)
-        .findFirst();
+    return await (_db.select(
+      _db.taskTags,
+    )..where((tbl) => tbl.name.equals(name))).getSingleOrNull();
+  }
+
+  /// Get tags for a specific task
+  Future<List<TaskTag>> getTagsForTask(int taskId) async {
+    final query = _db.select(_db.taskTags).join([
+      innerJoin(
+        _db.todoTaskTags,
+        _db.todoTaskTags.tagId.equalsExp(_db.taskTags.id),
+      ),
+    ])..where(_db.todoTaskTags.taskId.equals(taskId));
+
+    final rows = await query.get();
+    return rows.map((row) => row.readTable(_db.taskTags)).toList();
   }
 
   /// Watch all tags (stream for reactive updates)
   Stream<List<TaskTag>> watchAllTags() {
-    return _isar.taskTags.where().watch(fireImmediately: true);
+    return _db.select(_db.taskTags).watch();
   }
 
   /// Watch a specific tag by ID
-  Stream<TaskTag?> watchTagById(Id id) {
-    return _isar.taskTags
-        .watchObject(id, fireImmediately: true);
+  Stream<TaskTag?> watchTagById(int id) {
+    return (_db.select(
+      _db.taskTags,
+    )..where((tbl) => tbl.id.equals(id))).watchSingleOrNull();
   }
 
   /// Get tags sorted by usage (most used first)
   Future<List<TaskTag>> getTagsSortedByUsage() async {
-    final tags = await getAllTags();
+    final query = _db.select(_db.taskTags).join([
+      leftOuterJoin(
+        _db.todoTaskTags,
+        _db.todoTaskTags.tagId.equalsExp(_db.taskTags.id),
+      ),
+    ])..groupBy([_db.taskTags.id]);
 
-    // Load task relationships for each tag
-    for (final tag in tags) {
-      await tag.tasks.load();
+    final results = await query.get();
+
+    // Create a map of tag usage counts
+    final tagUsage = <int, int>{};
+    for (final result in results) {
+      final tag = result.readTable(_db.taskTags);
+      final taskId = result.readTableOrNull(_db.todoTaskTags)?.taskId;
+      tagUsage[tag.id] = (tagUsage[tag.id] ?? 0) + (taskId != null ? 1 : 0);
     }
 
-    // Sort by number of associated tasks (descending)
-    tags.sort((a, b) => b.tasks.length.compareTo(a.tasks.length));
+    // Get all tags and sort by usage
+    final allTags = await getAllTags();
+    allTags.sort(
+      (a, b) => (tagUsage[b.id] ?? 0).compareTo(tagUsage[a.id] ?? 0),
+    );
 
-    return tags;
+    return allTags;
   }
 
   /// Search tags by name
   Future<List<TaskTag>> searchTags(String query) async {
-    return await _isar.taskTags
-        .filter()
-        .nameContains(query, caseSensitive: false)
-        .findAll();
+    return await (_db.select(
+      _db.taskTags,
+    )..where((tbl) => tbl.name.like('%$query%'))).get();
   }
 
   // UPDATE
 
   /// Update a tag
-  Future<void> updateTag(TaskTag tag) async {
-    await _isar.writeTxn(() async {
-      await _isar.taskTags.put(tag);
-    });
-  }
-
-  /// Update tag name
-  Future<void> updateTagName(TaskTag tag, String newName) async {
-    // Check if new name already exists
-    if (newName != tag.name) {
-      final existing = await getTagByName(newName);
-      if (existing != null) {
-        throw Exception('Tag with name "$newName" already exists');
+  Future<bool> updateTag(
+    int id, {
+    String? name,
+    int? colorValue,
+    String? icon,
+  }) async {
+    if (name != null) {
+      // Check if new name already exists
+      final existing = await getTagByName(name);
+      if (existing != null && existing.id != id) {
+        throw Exception('Tag with name "$name" already exists');
       }
     }
 
-    tag.name = newName;
-    await updateTag(tag);
+    return (await (_db.update(
+          _db.taskTags,
+        )..where((tbl) => tbl.id.equals(id))).write(
+          TaskTagsCompanion(
+            name: name != null ? Value(name) : const Value.absent(),
+            colorValue: colorValue != null
+                ? Value(colorValue)
+                : const Value.absent(),
+            icon: icon != null ? Value(icon) : const Value.absent(),
+          ),
+        )) >
+        0;
+  }
+
+  /// Update tag name
+  Future<bool> updateTagName(int tagId, String newName) async {
+    return await updateTag(tagId, name: newName);
   }
 
   /// Update tag color
-  Future<void> updateTagColor(TaskTag tag, Color newColor) async {
-    tag.colorValue = newColor.toARGB32();
-    await updateTag(tag);
+  Future<bool> updateTagColor(int tagId, Color newColor) async {
+    return await updateTag(
+      tagId,
+      colorValue: newColor.value,
+    ); // ignore: deprecated_member_use
   }
 
   /// Update tag icon
-  Future<void> updateTagIcon(TaskTag tag, String? newIcon) async {
-    tag.icon = newIcon;
-    await updateTag(tag);
+  Future<bool> updateTagIcon(int tagId, String? newIcon) async {
+    return await updateTag(tagId, icon: newIcon);
   }
 
   // DELETE
 
   /// Delete a tag
   /// This will also remove the tag from all associated tasks
-  Future<bool> deleteTag(TaskTag tag) async {
-    return await _isar.writeTxn(() async {
-      // Load tasks first
-      await tag.tasks.load();
+  Future<bool> deleteTag(int tagId) async {
+    // Delete tag associations first
+    await (_db.delete(
+      _db.todoTaskTags,
+    )..where((tbl) => tbl.tagId.equals(tagId))).go();
 
-      // Remove tag from all tasks
-      for (final task in tag.tasks) {
-        task.tags.remove(tag);
-        await task.tags.save();
-      }
+    // Delete the tag
+    final count = await (_db.delete(
+      _db.taskTags,
+    )..where((tbl) => tbl.id.equals(tagId))).go();
 
-      // Delete the tag
-      return await _isar.taskTags.delete(tag.id);
-    });
+    return count > 0;
   }
 
-  /// Delete a tag by ID
-  Future<bool> deleteTagById(Id id) async {
-    final tag = await getTagById(id);
+  /// Delete a tag by name
+  Future<bool> deleteTagByName(String name) async {
+    final tag = await getTagByName(name);
     if (tag == null) return false;
-    return await deleteTag(tag);
+    return await deleteTag(tag.id);
   }
 
-  /// Delete all tags (use with caution!)
+  /// Delete all tags
   Future<int> deleteAllTags() async {
-    return await _isar.writeTxn(() async {
-      // Clear all tag relationships from tasks first
-      final allTags = await getAllTags();
-      for (final tag in allTags) {
-        await tag.tasks.load();
-        for (final task in tag.tasks) {
-          task.tags.remove(tag);
-          await task.tags.save();
-        }
-      }
-
-      return await _isar.taskTags.where().deleteAll();
-    });
+    // Delete all tag associations first
+    await _db.delete(_db.todoTaskTags).go();
+    // Delete all tags
+    return await _db.delete(_db.taskTags).go();
   }
 
   // STATISTICS
 
-  /// Get total count of tags
+  /// Get count of all tags
   Future<int> getTagCount() async {
-    return await _isar.taskTags.count();
+    final result =
+        await (_db.selectOnly(_db.taskTags)
+              ..addColumns([_db.taskTags.id.count()]))
+            .map((row) => row.read(_db.taskTags.id.count()))
+            .getSingle();
+    return result ?? 0;
   }
 
-  /// Get count of tasks for a specific tag
-  Future<int> getTaskCountForTag(TaskTag tag) async {
-    await tag.tasks.load();
-    return tag.tasks.length;
+  /// Get count of tasks with a specific tag
+  Future<int> getTagUsageCount(int tagId) async {
+    final result =
+        await (_db.selectOnly(_db.todoTaskTags)
+              ..addColumns([_db.todoTaskTags.tagId.count()])
+              ..where(_db.todoTaskTags.tagId.equals(tagId)))
+            .map((row) => row.read(_db.todoTaskTags.tagId.count()))
+            .getSingle();
+    return result ?? 0;
   }
 
-  /// Check if tag name is available
-  Future<bool> isTagNameAvailable(String name) async {
-    final existing = await getTagByName(name);
-    return existing == null;
-  }
-
-  // UTILITIES
-
-  /// Get color from tag
-  Color getTagColor(TaskTag tag) {
-    return Color(tag.colorValue);
+  /// Get color from color value
+  static Color getColorFromValue(int colorValue) {
+    return Color(colorValue);
   }
 }
