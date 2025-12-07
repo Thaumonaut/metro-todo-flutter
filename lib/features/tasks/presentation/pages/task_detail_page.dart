@@ -27,7 +27,6 @@ class TaskDetailPage extends ConsumerWidget {
     final taskAsync = ref.watch(watchTaskByIdProvider(taskId));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: taskAsync.when(
         data: (task) {
           if (task == null) {
@@ -42,7 +41,7 @@ class TaskDetailPage extends ConsumerWidget {
           child: Text(
             'Error loading task',
             style: AppTypography.body1.copyWith(
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -58,13 +57,13 @@ class TaskDetailPage extends ConsumerWidget {
           Icon(
             Icons.error_outline,
             size: 64,
-            color: AppColors.textHint,
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'Task not found',
             style: AppTypography.h3.copyWith(
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 24),
@@ -87,7 +86,6 @@ class TaskDetailPage extends ConsumerWidget {
           expandedHeight: 120,
           floating: false,
           pinned: true,
-          backgroundColor: AppColors.surface,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
@@ -109,7 +107,7 @@ class TaskDetailPage extends ConsumerWidget {
             title: Text(
               'Task Details',
               style: AppTypography.h3.copyWith(
-                color: AppColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -129,7 +127,7 @@ class TaskDetailPage extends ConsumerWidget {
                     Text(
                       task.title,
                       style: AppTypography.h2.copyWith(
-                        color: AppColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     if (task.description != null &&
@@ -138,7 +136,7 @@ class TaskDetailPage extends ConsumerWidget {
                       Text(
                         task.description!,
                         style: AppTypography.body1.copyWith(
-                          color: AppColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -156,7 +154,7 @@ class TaskDetailPage extends ConsumerWidget {
                     Text(
                       'Status',
                       style: AppTypography.body2.copyWith(
-                        color: AppColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -215,12 +213,13 @@ class TaskDetailPage extends ConsumerWidget {
                     Text(
                       'Information',
                       style: AppTypography.body2.copyWith(
-                        color: AppColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 16),
                     _buildInfoRow(
+                      context,
                       Icons.flag,
                       'Importance',
                       _getImportanceLabel(task.importance),
@@ -229,25 +228,28 @@ class TaskDetailPage extends ConsumerWidget {
                     const SizedBox(height: 12),
                     if (task.dueDate != null)
                       _buildInfoRow(
+                        context,
                         Icons.calendar_today,
                         'Due Date',
                         dateFormatter.format(task.dueDate!),
                         task.isOverdue
-                            ? Colors.red
+                            ? Theme.of(context).colorScheme.error
                             : task.isDueToday
-                                ? AppColors.primary
-                                : AppColors.textPrimary,
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
                       ),
                     const SizedBox(height: 12),
                     _buildInfoRow(
+                      context,
                       Icons.access_time,
                       'Created',
                       dateFormatter.format(task.createdAt),
-                      AppColors.textSecondary,
+                      Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     if (task.completedAt != null) ...[
                       const SizedBox(height: 12),
                       _buildInfoRow(
+                        context,
                         Icons.check_circle,
                         'Completed',
                         dateFormatter.format(task.completedAt!),
@@ -269,7 +271,7 @@ class TaskDetailPage extends ConsumerWidget {
                       Text(
                         'Tags',
                         style: AppTypography.body2.copyWith(
-                          color: AppColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -337,7 +339,7 @@ class TaskDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, Color color) {
+  Widget _buildInfoRow(BuildContext context, IconData icon, String label, String value, Color color) {
     return Row(
       children: [
         Icon(icon, size: 20, color: color),
@@ -345,7 +347,7 @@ class TaskDetailPage extends ConsumerWidget {
         Text(
           '$label: ',
           style: AppTypography.body2.copyWith(
-            color: AppColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         Expanded(

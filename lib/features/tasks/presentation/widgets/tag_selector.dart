@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/task_tag.dart';
 import '../../providers/task_providers.dart';
@@ -26,7 +25,7 @@ class TagSelector extends ConsumerWidget {
         Text(
           'Tags',
           style: AppTypography.body2.copyWith(
-            color: AppColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -37,17 +36,17 @@ class TagSelector extends ConsumerWidget {
               return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.glassBorder,
+                    color: Theme.of(context).colorScheme.outline,
                     width: 1.5,
                   ),
                 ),
                 child: Text(
                   'No tags available. Create tags in settings.',
                   style: AppTypography.body2.copyWith(
-                    color: AppColors.textHint,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
               );
@@ -116,17 +115,17 @@ class TagSelector extends ConsumerWidget {
           error: (error, _) => Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.glassBorder,
+                color: Theme.of(context).colorScheme.outline,
                 width: 1.5,
               ),
             ),
             child: Text(
               'Error loading tags',
               style: AppTypography.body2.copyWith(
-                color: AppColors.textHint,
+                color: Theme.of(context).colorScheme.error,
               ),
             ),
           ),

@@ -21,9 +21,13 @@ void main() async {
   // Initialize notification service
   await NotificationService().initialize();
 
-  // Initialize background task service
-  await BackgroundTaskService.initialize();
-  await BackgroundTaskService.registerPeriodicTasks();
+  // Initialize background task service (only on Android/iOS)
+  try {
+    await BackgroundTaskService.initialize();
+    await BackgroundTaskService.registerPeriodicTasks();
+  } catch (e) {
+    debugPrint('Background tasks not supported on this platform: $e');
+  }
 
   // Run the app with Riverpod
   runApp(

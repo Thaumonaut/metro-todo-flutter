@@ -97,9 +97,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -108,7 +106,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
         title: Text(
           isEditMode ? 'Edit Task' : 'New Task',
           style: AppTypography.h3.copyWith(
-            color: AppColors.textPrimary,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ),
@@ -121,37 +119,37 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             TextFormField(
               controller: _titleController,
               style: AppTypography.body1.copyWith(
-                color: AppColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               decoration: InputDecoration(
                 labelText: 'Title *',
                 labelStyle: AppTypography.body2.copyWith(
-                  color: AppColors.textSecondary,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 hintText: 'Enter task title',
                 hintStyle: AppTypography.body1.copyWith(
-                  color: AppColors.textHint,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 filled: true,
-                fillColor: AppColors.surface,
+                fillColor: Theme.of(context).colorScheme.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: AppColors.glassBorder,
+                    color: Theme.of(context).colorScheme.outline,
                     width: 1.5,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: AppColors.glassBorder,
+                    color: Theme.of(context).colorScheme.outline,
                     width: 1.5,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: AppColors.primary,
+                    color: Theme.of(context).colorScheme.primary,
                     width: 2,
                   ),
                 ),
@@ -177,37 +175,37 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             TextFormField(
               controller: _descriptionController,
               style: AppTypography.body1.copyWith(
-                color: AppColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               decoration: InputDecoration(
                 labelText: 'Description (optional)',
                 labelStyle: AppTypography.body2.copyWith(
-                  color: AppColors.textSecondary,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 hintText: 'Enter task description',
                 hintStyle: AppTypography.body1.copyWith(
-                  color: AppColors.textHint,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 filled: true,
-                fillColor: AppColors.surface,
+                fillColor: Theme.of(context).colorScheme.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: AppColors.glassBorder,
+                    color: Theme.of(context).colorScheme.outline,
                     width: 1.5,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: AppColors.glassBorder,
+                    color: Theme.of(context).colorScheme.outline,
                     width: 1.5,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(
-                    color: AppColors.primary,
+                    color: Theme.of(context).colorScheme.primary,
                     width: 2,
                   ),
                 ),
@@ -249,7 +247,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
 
             // Recurrence pattern selector (not shown when editing recurring instance)
             if (!isEditMode || isEditingRecurringTemplate) ...[
-              Divider(color: AppColors.glassBorder),
+              Divider(color: Theme.of(context).dividerColor),
               const SizedBox(height: 16),
               RecurrencePatternSelector(
                 isRecurring: _isRecurring,
@@ -309,7 +307,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
         Text(
           'Status',
           style: AppTypography.body2.copyWith(
-            color: AppColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -359,9 +357,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   Color _getStatusColor(TaskStatus status) {
     switch (status) {
       case TaskStatus.notStarted:
-        return AppColors.textSecondary;
+        return Theme.of(context).colorScheme.onSurfaceVariant;
       case TaskStatus.inProgress:
-        return AppColors.primary;
+        return Theme.of(context).colorScheme.primary;
       case TaskStatus.onHold:
         return AppColors.purple6;
       case TaskStatus.completed:
@@ -434,7 +432,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Task updated successfully'),
-              backgroundColor: AppColors.primary,
+              backgroundColor: Theme.of(context).colorScheme.primary,
             ),
           );
           Navigator.pop(context, true);
@@ -480,7 +478,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Recurring task created successfully'),
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             );
             Navigator.pop(context, true);
@@ -503,7 +501,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Task created successfully'),
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
             );
             Navigator.pop(context, true);

@@ -132,7 +132,7 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
               SizedBox(
                 width: 80,
                 child: DropdownButtonFormField<int>(
-                  value: _interval,
+                  initialValue: _interval,
                   decoration: const InputDecoration(
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -293,7 +293,7 @@ class _RecurrencePatternSelectorState extends State<RecurrencePatternSelector> {
     final monthName = DateFormat('MMMM').format(startDate);
 
     return Text(
-      'On ${monthName} ${startDate.day}',
+      'On $monthName ${startDate.day}',
       style: Theme.of(context).textTheme.bodyLarge,
     );
   }

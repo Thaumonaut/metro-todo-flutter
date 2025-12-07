@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../data/models/todo_task.dart';
 import '../../providers/home_providers.dart';
@@ -43,7 +42,7 @@ class TodayTasksSheet extends ConsumerWidget {
   static void show(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -69,7 +68,7 @@ class TodayTasksSheet extends ConsumerWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.textHint,
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -80,12 +79,12 @@ class TodayTasksSheet extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
-                Icon(Icons.today, color: AppColors.primary),
+                Icon(Icons.today, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 12),
                 Text(
                   'Due Today',
                   style: AppTypography.h3.copyWith(
-                    color: AppColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -97,10 +96,10 @@ class TodayTasksSheet extends ConsumerWidget {
           Expanded(
             child: todayTasksAsync.when(
               data: (tasks) => tasks.isEmpty
-                  ? _buildEmptyState()
+                  ? _buildEmptyState(context)
                   : _buildTasksList(context, tasks, scrollController),
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _buildErrorState(),
+              error: (error, _) => _buildErrorState(context),
             ),
           ),
         ],
@@ -109,7 +108,7 @@ class TodayTasksSheet extends ConsumerWidget {
   }
 
   /// Builds the empty state when no tasks are due today
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -117,13 +116,13 @@ class TodayTasksSheet extends ConsumerWidget {
           Icon(
             Icons.check_circle_outline,
             size: 48,
-            color: AppColors.textHint,
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
             'No tasks due today',
             style: AppTypography.body1.copyWith(
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -132,11 +131,11 @@ class TodayTasksSheet extends ConsumerWidget {
   }
 
   /// Builds the error state when tasks fail to load
-  Widget _buildErrorState() {
+  Widget _buildErrorState(BuildContext context) {
     return Center(
       child: Text(
         'Error loading tasks',
-        style: AppTypography.body1.copyWith(color: AppColors.error),
+        style: AppTypography.body1.copyWith(color: Theme.of(context).colorScheme.error),
       ),
     );
   }

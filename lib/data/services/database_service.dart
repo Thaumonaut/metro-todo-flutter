@@ -3,6 +3,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/todo_task.dart';
 import '../models/task_tag.dart';
 import '../models/recurring_pattern.dart';
+import '../models/recurring_completion.dart';
 
 /// Service for managing Isar database initialization and access
 class DatabaseService {
@@ -17,7 +18,12 @@ class DatabaseService {
     final dir = await getApplicationDocumentsDirectory();
 
     _isar = await Isar.open(
-      [TodoTaskSchema, TaskTagSchema, RecurringPatternSchema],
+      [
+        TodoTaskSchema,
+        TaskTagSchema,
+        RecurringPatternSchema,
+        RecurringCompletionSchema,
+      ],
       directory: dir.path,
       inspector: true, // Enable Isar Inspector for debugging
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/providers/preferences_providers.dart';
 import '../../../../data/models/importance_level.dart';
@@ -28,7 +27,7 @@ class SettingsSection extends ConsumerWidget {
                 fontSize: 36,
                 fontWeight: FontWeight.w300,
                 letterSpacing: -1.0,
-                color: AppColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -36,6 +35,7 @@ class SettingsSection extends ConsumerWidget {
 
           // Preferences group
           _buildSettingsGroup(
+            context,
             'Preferences',
             [
               SettingsItem(
@@ -110,6 +110,7 @@ class SettingsSection extends ConsumerWidget {
 
           // About group
           _buildSettingsGroup(
+            context,
             'About',
             [
               SettingsItem(
@@ -140,7 +141,7 @@ class SettingsSection extends ConsumerWidget {
   }
 
   /// Builds a group of settings items with a title
-  Widget _buildSettingsGroup(String title, List<SettingsItem> items) {
+  Widget _buildSettingsGroup(BuildContext context, String title, List<SettingsItem> items) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -152,31 +153,31 @@ class SettingsSection extends ConsumerWidget {
               fontSize: 18,
               fontWeight: FontWeight.w600,
               letterSpacing: -0.3,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),
         const SizedBox(height: 12),
         ...items.map((item) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: _buildSettingsItemWidget(item),
+              child: _buildSettingsItemWidget(context, item),
             )),
       ],
     );
   }
 
   /// Builds a single settings item widget
-  Widget _buildSettingsItemWidget(SettingsItem item) {
+  Widget _buildSettingsItemWidget(BuildContext context, SettingsItem item) {
     return InkWell(
       onTap: item.onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: AppColors.glassBorder.withValues(alpha: 0.1),
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -187,14 +188,14 @@ class SettingsSection extends ConsumerWidget {
               height: 40,
               decoration: BoxDecoration(
                 color: item.isDestructive
-                    ? AppColors.error.withValues(alpha: 0.1)
-                    : AppColors.primary.withValues(alpha: 0.1),
+                    ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
+                    : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 item.icon,
                 size: 20,
-                color: item.isDestructive ? AppColors.error : AppColors.primary,
+                color: item.isDestructive ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(width: 16),
@@ -208,8 +209,8 @@ class SettingsSection extends ConsumerWidget {
                     item.title,
                     style: AppTypography.body1.copyWith(
                       color: item.isDestructive
-                          ? AppColors.error
-                          : AppColors.textPrimary,
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -218,7 +219,7 @@ class SettingsSection extends ConsumerWidget {
                     Text(
                       item.subtitle!,
                       style: AppTypography.body2.copyWith(
-                        color: AppColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -229,7 +230,7 @@ class SettingsSection extends ConsumerWidget {
             // Chevron icon
             Icon(
               Icons.chevron_right,
-              color: AppColors.textHint,
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               size: 20,
             ),
           ],

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../data/providers/repository_providers.dart';
 
 /// A live tile widget that displays task statistics in a gallery-style format
@@ -103,7 +102,7 @@ class _LiveStatsTileState extends State<LiveStatsTile> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.purple6,
+            color: Theme.of(context).colorScheme.primary,
             borderRadius: BorderRadius.circular(4),
           ),
           child: ClipRRect(

@@ -73,16 +73,16 @@ class OverviewSection extends ConsumerWidget {
               fontSize: 36,
               fontWeight: FontWeight.w300,
               letterSpacing: -1.0,
-              color: AppColors.textPrimary,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
           const SizedBox(height: 16),
 
           // Responsive layout: stacked on small screens, horizontal on large
           if (isCompact)
-            _buildCompactLayout(tileSize)
+            _buildCompactLayout(tileSize, context)
           else
-            _buildWideLayout(tileSize),
+            _buildWideLayout(tileSize, context),
 
           const SizedBox(height: 24),
 
@@ -92,7 +92,7 @@ class OverviewSection extends ConsumerWidget {
               fontSize: 24,
               fontWeight: FontWeight.w600,
               letterSpacing: -0.5,
-              color: AppColors.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 12),
@@ -119,7 +119,7 @@ class OverviewSection extends ConsumerWidget {
 
   /// Builds the compact layout for small screens (< 480px)
   /// Live tile on top, quick actions below
-  Widget _buildCompactLayout(double tileSize) {
+  Widget _buildCompactLayout(double tileSize, BuildContext context) {
     return Column(
       children: [
         // Live stats tile - full width
@@ -130,7 +130,7 @@ class OverviewSection extends ConsumerWidget {
             data: (stats) => LiveStatsTile(stats: stats),
             loading: () => Container(
               decoration: BoxDecoration(
-                color: AppColors.purple6,
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: const Center(child: CircularProgressIndicator()),
@@ -148,7 +148,7 @@ class OverviewSection extends ConsumerWidget {
                 child: QuickActionIcon(
                   icon: Icons.add,
                   label: 'New Task',
-                  color: AppColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                   size: tileSize,
                   onTap: onNewTaskTap,
                 ),
@@ -158,7 +158,7 @@ class OverviewSection extends ConsumerWidget {
                 child: QuickActionIcon(
                   icon: Icons.today,
                   label: 'Due Today',
-                  color: AppColors.purple4,
+                  color: Theme.of(context).colorScheme.secondary,
                   size: tileSize,
                   onTap: onDueTodayTap,
                 ),
@@ -168,7 +168,7 @@ class OverviewSection extends ConsumerWidget {
                 child: QuickActionIcon(
                   icon: Icons.more_horiz,
                   label: 'More',
-                  color: AppColors.purple7,
+                  color: Theme.of(context).colorScheme.tertiary,
                   size: tileSize,
                   onTap: onMoreTap,
                 ),
@@ -182,7 +182,7 @@ class OverviewSection extends ConsumerWidget {
 
   /// Builds the wide layout for larger screens (>= 480px)
   /// Live tile and quick actions side by side
-  Widget _buildWideLayout(double tileSize) {
+  Widget _buildWideLayout(double tileSize, BuildContext context) {
     return SizedBox(
       height: tileSize,
       child: Row(
@@ -194,7 +194,7 @@ class OverviewSection extends ConsumerWidget {
               data: (stats) => LiveStatsTile(stats: stats),
               loading: () => Container(
                 decoration: BoxDecoration(
-                  color: AppColors.purple6,
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Center(child: CircularProgressIndicator()),
@@ -208,7 +208,7 @@ class OverviewSection extends ConsumerWidget {
           QuickActionIcon(
             icon: Icons.add,
             label: 'New Task',
-            color: AppColors.primary,
+            color: Theme.of(context).colorScheme.primary,
             size: tileSize,
             onTap: onNewTaskTap,
           ),
@@ -217,7 +217,7 @@ class OverviewSection extends ConsumerWidget {
           QuickActionIcon(
             icon: Icons.today,
             label: 'Due Today',
-            color: AppColors.purple4,
+            color: Theme.of(context).colorScheme.secondary,
             size: tileSize,
             onTap: onDueTodayTap,
           ),
@@ -226,7 +226,7 @@ class OverviewSection extends ConsumerWidget {
           QuickActionIcon(
             icon: Icons.more_horiz,
             label: 'More',
-            color: AppColors.purple7,
+            color: Theme.of(context).colorScheme.tertiary,
             size: tileSize,
             onTap: onMoreTap,
           ),

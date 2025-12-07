@@ -39,7 +39,7 @@ class RecurringSection extends ConsumerWidget {
                   fontSize: 36,
                   fontWeight: FontWeight.w300,
                   letterSpacing: -1.0,
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               IconButton(
@@ -58,7 +58,7 @@ class RecurringSection extends ConsumerWidget {
               fontSize: 18,
               fontWeight: FontWeight.w600,
               letterSpacing: -0.3,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
@@ -98,7 +98,7 @@ class RecurringSection extends ConsumerWidget {
               fontSize: 18,
               fontWeight: FontWeight.w600,
               letterSpacing: -0.3,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
@@ -174,7 +174,7 @@ class RecurringSection extends ConsumerWidget {
                                 ? Text(
                                     _getPatternDescription(pattern),
                                     style: AppTypography.body2.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                                   )
                                 : const SizedBox.shrink(),
@@ -186,7 +186,7 @@ class RecurringSection extends ConsumerWidget {
                   ),
                   Icon(
                     Icons.chevron_right,
-                    color: AppColors.textHint,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ],
               ),
@@ -195,7 +195,7 @@ class RecurringSection extends ConsumerWidget {
                 Text(
                   'Started: ${DateFormat('MMM d, yyyy').format(template.dueDate!)}',
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textHint,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -217,7 +217,7 @@ class RecurringSection extends ConsumerWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: _getDateColor(isOverdue, isDueToday).withValues(alpha: 0.1),
+            color: _getDateColor(isOverdue, isDueToday, context).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
@@ -227,7 +227,7 @@ class RecurringSection extends ConsumerWidget {
                   : '?',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: _getDateColor(isOverdue, isDueToday),
+                color: _getDateColor(isOverdue, isDueToday, context),
               ),
             ),
           ),
@@ -243,7 +243,7 @@ class RecurringSection extends ConsumerWidget {
               ? DateFormat('EEEE, MMM d').format(instance.dueDate!)
               : 'No date',
           style: TextStyle(
-            color: _getDateColor(isOverdue, isDueToday),
+            color: _getDateColor(isOverdue, isDueToday, context),
           ),
         ),
         trailing: Row(
@@ -265,10 +265,10 @@ class RecurringSection extends ConsumerWidget {
     );
   }
 
-  Color _getDateColor(bool isOverdue, bool isDueToday) {
+  Color _getDateColor(bool isOverdue, bool isDueToday, BuildContext context) {
     if (isOverdue) return AppColors.error;
-    if (isDueToday) return AppColors.primary;
-    return AppColors.textSecondary;
+    if (isDueToday) return Theme.of(context).colorScheme.primary;
+    return Theme.of(context).colorScheme.onSurfaceVariant;
   }
 
   Widget _buildEmptyState(
@@ -286,13 +286,13 @@ class RecurringSection extends ConsumerWidget {
           Icon(
             icon,
             size: 48,
-            color: AppColors.textHint,
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             message,
             style: AppTypography.body1.copyWith(
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           if (actionLabel != null && onAction != null) ...[
@@ -312,7 +312,7 @@ class RecurringSection extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Text(
         'Error: $message',
-        style: TextStyle(color: AppColors.error),
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
       ),
     );
   }
@@ -381,8 +381,8 @@ class RecurringSection extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete, color: AppColors.error),
-              title: Text('Delete Series', style: TextStyle(color: AppColors.error)),
+              leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+              title: Text('Delete Series', style: TextStyle(color: Theme.of(context).colorScheme.error)),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDeleteSeries(context, ref, template);
@@ -429,7 +429,7 @@ class RecurringSection extends ConsumerWidget {
                 }
               }
             },
-            child: Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),

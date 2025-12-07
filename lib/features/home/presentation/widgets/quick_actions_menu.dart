@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// A bottom sheet menu displaying quick action options
@@ -18,54 +17,7 @@ class QuickActionsMenu extends StatelessWidget {
   final VoidCallback onSearchTap;
   final VoidCallback onSettingsTap;
 
-  /// Shows the quick actions menu as a modal bottom sheet
-  ///
-  /// TODO: Implement the show() method with navigation callbacks
-  /// PARAMETERS:
-  ///   - context: BuildContext for showing the modal
-  ///   - onUrgentTap: Callback when "Urgent Tasks" is tapped
-  ///   - onTagsTap: Callback when "Tags" is tapped
-  ///   - onSearchTap: Callback when "Search" is tapped
-  ///   - onSettingsTap: Callback when "Settings" is tapped
-  ///
-  /// REQUIREMENTS:
-  /// 1. Use showModalBottomSheet() to display the menu
-  /// 2. Set backgroundColor to AppColors.surface
-  /// 3. Use RoundedRectangleBorder with top radius of 16
-  /// 4. Return QuickActionsMenu() with all callbacks passed in
-  ///
-  /// EXAMPLE USAGE:
-  ///   QuickActionsMenu.show(
-  ///     context,
-  ///     onUrgentTap: () => controller.navigateToPage(2),
-  ///     onTagsTap: () => print('Navigate to tags'),
-  ///     onSearchTap: () => print('Navigate to search'),
-  ///     onSettingsTap: () => controller.navigateToPage(3),
-  ///   );
-  ///
-  /// EXAMPLE IMPLEMENTATION:
-  /// static void show(
-  ///   BuildContext context, {
-  ///   required VoidCallback onUrgentTap,
-  ///   required VoidCallback onTagsTap,
-  ///   required VoidCallback onSearchTap,
-  ///   required VoidCallback onSettingsTap,
-  /// }) {
-  ///   showModalBottomSheet(
-  ///     context: context,
-  ///     backgroundColor: AppColors.surface,
-  ///     shape: const RoundedRectangleBorder(
-  ///       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-  ///     ),
-  ///     builder: (context) => QuickActionsMenu(
-  ///       onUrgentTap: () {
-  ///         Navigator.pop(context);
-  ///         onUrgentTap();
-  ///       },
-  ///       // ... other callbacks
-  ///     ),
-  ///   );
-  /// }
+
   static void show(
     BuildContext context, {
     required VoidCallback onUrgentTap,
@@ -75,7 +27,7 @@ class QuickActionsMenu extends StatelessWidget {
   }) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -112,7 +64,7 @@ class QuickActionsMenu extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.textHint,
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -167,12 +119,12 @@ class _QuickActionMenuItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.textPrimary, size: 24),
+            Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 24),
             const SizedBox(width: 16),
             Text(
               title,
               style: AppTypography.body1.copyWith(
-                color: AppColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w500,
               ),
             ),

@@ -4,19 +4,30 @@ import '../../../data/models/todo_task.dart';
 import '../../../data/models/task_tag.dart';
 
 /// Stream provider for tasks due today
+/// Filters out recurring instances to avoid duplicates
 final todayTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
-    return todos.where((todo) => todo.isDueToday && !todo.isCompleted).toList()
+    return todos.where((todo) =>
+      todo.isDueToday &&
+      !todo.isCompleted &&
+      // Show non-recurring tasks OR recurring templates only
+      (!todo.isRecurring || todo.isRecurringTemplate)
+    ).toList()
       ..sort((a, b) => b.importance.value.compareTo(a.importance.value));
   });
 });
 
 /// Stream provider for all incomplete tasks
+/// Filters out recurring instances to show only one entry per recurring task
 final allTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
-    return todos.where((todo) => !todo.isCompleted).toList()
+    return todos.where((todo) =>
+      !todo.isCompleted &&
+      // Show non-recurring tasks OR recurring templates only (hide instances)
+      (!todo.isRecurring || todo.isRecurringTemplate)
+    ).toList()
       ..sort((a, b) {
         // Sort by due date first (overdue first, then by date), then by importance
         if (a.isOverdue != b.isOverdue) {
@@ -75,7 +86,11 @@ final homeRecurringInstancesProvider = StreamProvider<List<TodoTask>>((ref) {
 final recentTasksProvider = StreamProvider<List<TodoTask>>((ref) {
   final repository = ref.watch(todoRepositoryProvider);
   return repository.watchAllTodos().map((todos) {
-    final sortedTodos = List<TodoTask>.from(todos)
+    // Filter out recurring instances, keep only templates
+    final filteredTodos = todos.where((todo) =>
+      !todo.isRecurring || todo.isRecurringTemplate
+    ).toList();
+    final sortedTodos = List<TodoTask>.from(filteredTodos)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return sortedTodos.take(10).toList();
   });

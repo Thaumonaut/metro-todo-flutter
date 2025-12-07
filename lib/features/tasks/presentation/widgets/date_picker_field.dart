@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// Custom date picker field with Metro styling
@@ -30,7 +29,7 @@ class DatePickerField extends StatelessWidget {
         Text(
           label,
           style: AppTypography.body2.copyWith(
-            color: AppColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -40,10 +39,10 @@ class DatePickerField extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AppColors.glassBorder,
+                color: Theme.of(context).colorScheme.outline,
                 width: 1.5,
               ),
             ),
@@ -53,8 +52,8 @@ class DatePickerField extends StatelessWidget {
                   Icons.calendar_today,
                   size: 20,
                   color: selectedDate != null
-                      ? AppColors.primary
-                      : AppColors.textHint,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -64,8 +63,8 @@ class DatePickerField extends StatelessWidget {
                         : 'Select date',
                     style: AppTypography.body1.copyWith(
                       color: selectedDate != null
-                          ? AppColors.textPrimary
-                          : AppColors.textHint,
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -75,7 +74,7 @@ class DatePickerField extends StatelessWidget {
                     child: Icon(
                       Icons.clear,
                       size: 20,
-                      color: AppColors.textSecondary,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
               ],
@@ -93,20 +92,7 @@ class DatePickerField extends StatelessWidget {
       firstDate: firstDate ?? DateTime(2020),
       lastDate: lastDate ?? DateTime(2100),
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: AppColors.surface,
-              onSurface: AppColors.textPrimary,
-            ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: AppColors.surface,
-            ),
-          ),
-          child: child!,
-        );
+        return child!;
       },
     );
 

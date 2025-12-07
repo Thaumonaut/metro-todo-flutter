@@ -44,7 +44,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
   void _showImportancePicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -85,11 +85,15 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header: Importance indicator + Due date
+                    // Header: Importance indicator + Due date + Recurring badge
                     Row(
                       children: [
                         _ImportanceIndicator(importance: task.importance),
                         const Spacer(),
+                        if (task.isRecurring && task.isRecurringTemplate) ...[
+                          _RecurringBadge(),
+                          const SizedBox(width: 6),
+                        ],
                         if (task.dueDate != null)
                           _DueDateBadge(dueDate: task.dueDate!, isOverdue: task.isOverdue),
                       ],
@@ -104,7 +108,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                           child: Text(
                             task.title,
                             style: AppTypography.h4.copyWith(
-                              color: AppColors.textPrimary,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -114,7 +118,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                         Text(
                           task.status.label,
                           style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -125,7 +129,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                       Text(
                         task.description!,
                         style: AppTypography.body2.copyWith(
-                          color: AppColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -166,7 +170,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: AppColors.divider,
+                        color: Theme.of(context).dividerColor,
                         width: 1,
                       ),
                     ),
@@ -178,7 +182,7 @@ class _TaskSummaryCardState extends State<TaskSummaryCard>
                         child: _ActionButton(
                           icon: Icons.edit_outlined,
                           label: 'Edit',
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                           onTap: widget.onEdit,
                         ),
                       ),
@@ -349,10 +353,10 @@ class _DueDateBadge extends StatelessWidget {
       color = AppColors.inProgress;
     } else if (dueDateOnly.difference(today).inDays <= 7) {
       text = '${dueDateOnly.difference(today).inDays}d';
-      color = AppColors.textSecondary;
+      color = Theme.of(context).colorScheme.onSurfaceVariant;
     } else {
       text = '${dueDate.month}/${dueDate.day}';
-      color = AppColors.textSecondary;
+      color = Theme.of(context).colorScheme.onSurfaceVariant;
     }
 
     return Container(
@@ -374,6 +378,40 @@ class _DueDateBadge extends StatelessWidget {
             text,
             style: AppTypography.caption.copyWith(
               color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Recurring task badge
+class _RecurringBadge extends StatelessWidget {
+  const _RecurringBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppConstants.radiusSmall),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.repeat,
+            size: 12,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Repeats',
+            style: AppTypography.caption.copyWith(
+              color: Theme.of(context).colorScheme.primary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -408,7 +446,7 @@ class _ImportancePickerSheet extends StatelessWidget {
               child: Text(
                 'Set Priority',
                 style: AppTypography.h3.copyWith(
-                  color: AppColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
@@ -437,7 +475,7 @@ class _ImportancePickerSheet extends StatelessWidget {
                         child: Text(
                           importance.label,
                           style: AppTypography.body1.copyWith(
-                            color: AppColors.textPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),

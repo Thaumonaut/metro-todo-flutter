@@ -129,7 +129,7 @@ class _MetroButtonState extends State<MetroButton> {
 
     switch (widget.variant) {
       case MetroButtonVariant.filled:
-        return AppColors.primary;
+        return Theme.of(context).colorScheme.primary;
       case MetroButtonVariant.outlined:
       case MetroButtonVariant.text:
         return Colors.transparent;
@@ -143,10 +143,10 @@ class _MetroButtonState extends State<MetroButton> {
 
     switch (widget.variant) {
       case MetroButtonVariant.filled:
-        return AppColors.textOnPrimary;
+        return Theme.of(context).colorScheme.onPrimary;
       case MetroButtonVariant.outlined:
       case MetroButtonVariant.text:
-        return AppColors.primary;
+        return Theme.of(context).colorScheme.primary;
     }
   }
 

@@ -57,7 +57,7 @@ dependencies:
   glassmorphism: ^3.0.0
 
   # Background Tasks & Notifications
-  workmanager: ^0.5.2
+  workmanager: ^0.6.0
   flutter_local_notifications: ^18.0.1
   timezone: ^0.10.0
   permission_handler: ^11.3.1

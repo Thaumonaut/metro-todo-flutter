@@ -24,9 +24,11 @@ class PageIndicator extends StatelessWidget {
         children: [
           Text(
             label,
-            style: AppTypography.caption.copyWith(
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              style: AppTypography.caption.copyWith(
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
           const SizedBox(height: 4),
@@ -34,7 +36,7 @@ class PageIndicator extends StatelessWidget {
             width: 40,
             height: 2,
             decoration: BoxDecoration(
-              color: isActive ? AppColors.primary : Colors.transparent,
+              color: isActive ? Theme.of(context).colorScheme.primary : Colors.transparent,
               borderRadius: BorderRadius.circular(1),
             ),
           ),

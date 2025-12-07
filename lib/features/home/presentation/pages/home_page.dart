@@ -60,7 +60,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final completedTasksAsync = ref.watch(completedTasksProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,7 +146,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               fontWeight: FontWeight.w300,
               letterSpacing: -2.0,
               height: 0.95,
-              color: AppColors.primary,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
           const SizedBox(height: 8),

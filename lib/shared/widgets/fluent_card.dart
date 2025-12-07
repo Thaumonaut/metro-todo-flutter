@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_shadows.dart';
 import '../../core/constants/app_constants.dart';
 
@@ -52,7 +51,7 @@ class FluentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? AppColors.surface;
+    final effectiveColor = color ?? Theme.of(context).colorScheme.surface;
     final shadows = _getShadows(shadowLevel);
 
     final cardContent = Container(
@@ -135,13 +134,13 @@ class GlassFluentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FluentCard(
-      color: AppColors.surfaceGlass,
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
       shadowLevel: ShadowLevel.subtle,
       borderRadius: borderRadius,
       padding: padding,
       margin: margin,
       border: Border.all(
-        color: AppColors.glassBorder,
+        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
         width: 1.5,
       ),
       onTap: onTap,
