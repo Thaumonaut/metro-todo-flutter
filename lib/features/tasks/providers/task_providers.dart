@@ -3,6 +3,8 @@ import '../../../data/models/todo_task.dart';
 import '../../../data/models/task_tag.dart';
 import '../../../data/models/importance_level.dart';
 import '../../../data/models/task_status.dart';
+import '../../../data/models/notification_type.dart';
+import '../../../data/database/database.dart' show TaskReminder; // Import TaskReminder explicitly or import full DB
 import '../../../data/providers/repository_providers.dart';
 import 'notification_providers.dart';
 
@@ -39,6 +41,13 @@ final watchTaskByIdProvider = StreamProvider.family<TodoTask?, int>((
   }
 });
 
+/// Provider for fetching a specific task by ID (one-time fetch)
+/// Useful for pages that don't need live updates
+final taskByIdProvider = FutureProvider.family<TodoTask?, int>((ref, id) async {
+  final todoRepo = ref.watch(todoRepositoryProvider);
+  return todoRepo.getTodoById(id);
+});
+
 /// Provider for watching reminders for a specific task
 final watchTaskRemindersProvider =
     StreamProvider.family<List<TaskReminder>, int>((ref, taskId) {
@@ -53,8 +62,10 @@ final createTaskProvider = Provider<Future<TodoTask> Function({
   required ImportanceLevel importance,
   TaskStatus status,
   DateTime? dueDate,
+  NotificationType? dueDateNotificationType,
   List<TaskTag>? tags,
   List<DateTime>? reminders,
+  Map<DateTime, NotificationType>? reminderTypes,
 })>((ref) {
   final todoRepo = ref.watch(todoRepositoryProvider);
   final notificationManager = ref.watch(taskNotificationManagerProvider);
@@ -65,8 +76,10 @@ final createTaskProvider = Provider<Future<TodoTask> Function({
     required ImportanceLevel importance,
     TaskStatus status = TaskStatus.notStarted,
     DateTime? dueDate,
+    NotificationType? dueDateNotificationType,
     List<TaskTag>? tags,
     List<DateTime>? reminders,
+    Map<DateTime, NotificationType>? reminderTypes,
   }) async {
     final taskId = await todoRepo.createTodo(
       title: title,
@@ -74,16 +87,21 @@ final createTaskProvider = Provider<Future<TodoTask> Function({
       importance: importance,
       status: status,
       dueDate: dueDate,
-      tags: tags?.map((t) => t.id).toList(),
+      tagIds: tags?.map((t) => t.id).toList(),
       reminders: reminders,
     );
 
     // Fetch the created task
     final task = await todoRepo.getTodoById(taskId);
-    
+
     if (task != null) {
       // Schedule notifications
-      await notificationManager.scheduleTaskNotifications(task, customReminders: reminders);
+      await notificationManager.scheduleTaskNotifications(
+        task,
+        customReminders: reminders,
+        reminderTypes: reminderTypes,
+        dueDateNotificationType: dueDateNotificationType,
+      );
       return task;
     } else {
       throw Exception('Failed to create task');
@@ -93,11 +111,11 @@ final createTaskProvider = Provider<Future<TodoTask> Function({
 
 /// Provider for updating a task
 /// Provider for updating a task
-final updateTaskProvider = Provider<Future<void> Function(TodoTask, {List<DateTime>? reminders})>((ref) {
+final updateTaskProvider = Provider<Future<void> Function(TodoTask, {List<DateTime>? reminders, Map<DateTime, NotificationType>? reminderTypes, NotificationType? dueDateNotificationType})>((ref) {
   final todoRepo = ref.watch(todoRepositoryProvider);
   final notificationManager = ref.watch(taskNotificationManagerProvider);
-  
-  return (TodoTask task, {List<DateTime>? reminders}) async {
+
+  return (TodoTask task, {List<DateTime>? reminders, Map<DateTime, NotificationType>? reminderTypes, NotificationType? dueDateNotificationType}) async {
     await todoRepo.updateTodo(
       task.id,
       title: task.title,
@@ -112,7 +130,7 @@ final updateTaskProvider = Provider<Future<void> Function(TodoTask, {List<DateTi
       isOverdue: task.isOverdue,
       reminders: reminders,
     );
-    
+
     // Update notifications
     // Note: We use the passed 'task' because only ID and reminders changed relevant to scheduling,
     // or we assume 'task' object passed in has the NEW values we want to verify.
@@ -120,14 +138,27 @@ final updateTaskProvider = Provider<Future<void> Function(TodoTask, {List<DateTi
     // Drift doesn't update the object in place.
     // Ideally we should refetch or construct updated object.
     // For now pass 'task' assuming it holds new state or at least ID.
-    await notificationManager.scheduleTaskNotifications(task, customReminders: reminders);
+    await notificationManager.scheduleTaskNotifications(
+      task,
+      customReminders: reminders,
+      reminderTypes: reminderTypes,
+      dueDateNotificationType: dueDateNotificationType,
+    );
   };
 });
 
 /// Provider for deleting a task
 final deleteTaskProvider = Provider<Future<bool> Function(TodoTask)>((ref) {
   final todoRepo = ref.watch(todoRepositoryProvider);
-  return (TodoTask task) => todoRepo.deleteTodo(task.id);
+  final notificationManager = ref.watch(taskNotificationManagerProvider);
+  
+  return (TodoTask task) async {
+    final result = await todoRepo.deleteTodo(task.id);
+    if (result) {
+      await notificationManager.cancelTaskNotifications(task.id);
+    }
+    return result;
+  };
 });
 
 /// Provider for completing a task

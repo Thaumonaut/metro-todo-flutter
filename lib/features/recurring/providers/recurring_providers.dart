@@ -122,8 +122,9 @@ final createRecurringTaskProvider =
 
         // generateInstances needs the full template object.
         final createdTemplate = await todoRepo.getTodoById(createdTemplateId);
-        if (createdTemplate == null)
+        if (createdTemplate == null) {
           throw Exception("Failed to create template");
+        }
 
         final savedPattern = await patternRepo.getPattern(patternId);
 

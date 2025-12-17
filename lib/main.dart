@@ -4,9 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/preferences_providers.dart';
-import 'data/services/database_service.dart';
-import 'data/services/background_task_service.dart';
-import 'data/services/notification_service.dart';
+import 'core/providers/app_initialization_provider.dart';
+import 'core/utils/global_keys.dart';
 import 'features/home/presentation/pages/home_page.dart';
 
 import 'dart:io';
@@ -16,24 +15,11 @@ void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Isar database
-  await DatabaseService.initialize();
-
-  // Initialize SharedPreferences
+  // CRITICAL: Only do lightweight initialization synchronously
+  // Heavy operations are deferred to prevent blocking the main thread
   final sharedPreferences = await SharedPreferences.getInstance();
 
-  // Initialize notification service
-  await NotificationService().initialize();
-
-  // Initialize background task service (only on Android/iOS)
-  try {
-    await BackgroundTaskService.initialize();
-    await BackgroundTaskService.registerPeriodicTasks();
-  } catch (e) {
-    debugPrint('Background tasks not supported on this platform: $e');
-  }
-
-  // Run the app with Riverpod
+  // Run the app immediately - don't block on heavy initialization
   runApp(
     ProviderScope(
       overrides: [
@@ -43,13 +29,16 @@ void main() async {
     ),
   );
 
-  doWhenWindowReady(() {
-    const initialSize = Size(1280, 720);
-    appWindow.minSize = const Size(600, 450);
-    appWindow.size = initialSize;
-    appWindow.alignment = Alignment.center;
-    appWindow.show();
-  });
+  // Configure window size only on desktop platforms
+  if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    doWhenWindowReady(() {
+      const initialSize = Size(1280, 720);
+      appWindow.minSize = const Size(600, 450);
+      appWindow.size = initialSize;
+      appWindow.alignment = Alignment.center;
+      appWindow.show();
+    });
+  }
 }
 
 class MyApp extends ConsumerWidget {
@@ -60,9 +49,15 @@ class MyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final accentColor = ref.watch(accentColorProvider);
 
+    // Trigger async initialization (non-blocking)
+    // This starts database, notifications, and background tasks in the background
+    // without blocking the main thread
+    ref.watch(appInitializationProvider);
+
     return MaterialApp(
       title: 'Metro Todo',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme(accentColor),
       darkTheme: AppTheme.darkTheme(accentColor),
       themeMode: themeMode,

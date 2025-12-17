@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:drift/drift.dart' show Value;
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -10,6 +9,7 @@ import '../../../../data/models/task_tag.dart';
 import '../../../../data/models/importance_level.dart';
 import '../../../../data/models/task_status.dart';
 import '../../../../data/models/recurring_pattern.dart';
+import '../../../../data/models/notification_type.dart';
 import '../../../../shared/widgets/metro_button.dart';
 import '../../providers/task_providers.dart';
 import '../../../recurring/providers/recurring_providers.dart';
@@ -38,7 +38,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   late ImportanceLevel _selectedImportance;
   late TaskStatus _selectedStatus;
   DateTime? _selectedDueDate;
+  NotificationType _dueDateNotificationType = NotificationType.basic; // Notification type for due date
   List<DateTime> _reminders = []; // Multiple reminders
+  final Map<DateTime, NotificationType> _reminderTypes = {}; // Notification type for each reminder
   List<TaskTag> _selectedTags = [];
   bool _isLoading = false;
 
@@ -300,6 +302,44 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
             ),
             const SizedBox(height: 16),
 
+            // Due date notification type selector
+            if (_selectedDueDate != null && !_isRecurring) ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Due Date Notification Type',
+                    style: AppTypography.body2.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<NotificationType>(
+                    segments: const [
+                      ButtonSegment<NotificationType>(
+                        value: NotificationType.basic,
+                        icon: Icon(Icons.notifications),
+                        label: Text('Basic Notification'),
+                      ),
+                      ButtonSegment<NotificationType>(
+                        value: NotificationType.persistent,
+                        icon: Icon(Icons.alarm),
+                        label: Text('Alarm'),
+                      ),
+                    ],
+                    selected: {_dueDateNotificationType},
+                    onSelectionChanged: (Set<NotificationType> newSelection) {
+                      setState(() {
+                        _dueDateNotificationType = newSelection.first;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+
             // Reminders Section
             if (!_isRecurring) ...[
               _buildRemindersSection(),
@@ -483,24 +523,66 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
                         height: 1,
                         color: Theme.of(context).colorScheme.outline,
                       ),
-                    ListTile(
-                      dense: true,
-                      leading: Icon(
-                        Icons.alarm,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      ),
-                      title: Text(
-                        DateFormat('MMM d, y @ h:mm a').format(reminder),
-                        style: AppTypography.body2,
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: () {
-                          setState(() {
-                            _reminders.removeAt(index);
-                          });
-                        },
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.alarm,
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  DateFormat('MMM d, y @ h:mm a').format(reminder),
+                                  style: AppTypography.body2,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 20),
+                                onPressed: () {
+                                  setState(() {
+                                    _reminders.removeAt(index);
+                                    _reminderTypes.remove(reminder);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Notification type selector
+                          Row(
+                            children: [
+                              const SizedBox(width: 28), // Align with text
+                              Expanded(
+                                child: SegmentedButton<NotificationType>(
+                                  segments: const [
+                                    ButtonSegment<NotificationType>(
+                                      value: NotificationType.basic,
+                                      icon: Icon(Icons.notifications, size: 16),
+                                      label: Text('Basic', style: TextStyle(fontSize: 12)),
+                                    ),
+                                    ButtonSegment<NotificationType>(
+                                      value: NotificationType.persistent,
+                                      icon: Icon(Icons.alarm, size: 16),
+                                      label: Text('Alarm', style: TextStyle(fontSize: 12)),
+                                    ),
+                                  ],
+                                  selected: {_reminderTypes[reminder] ?? NotificationType.basic},
+                                  onSelectionChanged: (Set<NotificationType> newSelection) {
+                                    setState(() {
+                                      _reminderTypes[reminder] = newSelection.first;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -548,6 +630,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
         setState(() {
           _reminders.add(reminder);
           _reminders.sort(); // Keep sorted
+          _reminderTypes[reminder] = NotificationType.basic; // Default to basic notification
         });
       }
     }
@@ -596,16 +679,13 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
 
         // Update task
         // Update task via Repository directly to handle reminders
-        final taskRepo = ref.read(todoRepositoryProvider);
-        await taskRepo.updateTodo(
-          updatedTask.id,
-          title: updatedTask.title,
-          description: updatedTask.description,
-          importance: _selectedImportance,
-          status: _selectedStatus,
-          dueDate: updatedTask.dueDate,
+        // Update task via Provider to handle reminders and notifications
+        final updateTask = ref.read(updateTaskProvider);
+        await updateTask(
+          updatedTask,
           reminders: _reminders,
-          isCompleted: updatedTask.isCompleted,
+          reminderTypes: _reminderTypes,
+          dueDateNotificationType: _dueDateNotificationType,
         );
 
         // Handle tag changes using repository
@@ -697,20 +777,20 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
           // Create regular task
           // Use TodoRepository.createTodo which handles insertion
 
-          final taskRepo = ref.read(todoRepositoryProvider);
-
-          // Note: createTodo takes tagIds as argument, handling relations.
-
-          await taskRepo.createTodo(
+          // Create regular task using provider
+          final createTask = ref.read(createTaskProvider);
+          await createTask(
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim().isEmpty
                 ? null
                 : _descriptionController.text.trim(),
-            importance: _selectedImportance, // Enum
-            status: _selectedStatus, // Enum
+            importance: _selectedImportance,
+            status: _selectedStatus,
             dueDate: _selectedDueDate,
+            dueDateNotificationType: _dueDateNotificationType,
+            tags: _selectedTags, // Provider handles ID extraction
             reminders: _reminders,
-            tagIds: _selectedTags.map((t) => t.id).toList(),
+            reminderTypes: _reminderTypes,
           );
 
           if (mounted) {

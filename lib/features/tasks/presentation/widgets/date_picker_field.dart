@@ -141,8 +141,9 @@ class DateTimeSelectionField extends StatelessWidget {
         },
       );
 
-      if (pickedTime == null)
+      if (pickedTime == null) {
         return; // User cancelled time selection, keep full cancel or just date?
+      }
       // Typically if they cancel time, we might assume they want to cancel everything or just set date.
       // Let's assume they want to complete the flow. If they cancel time, we return early (do nothing).
       // Or we could default to midnight or current time?
