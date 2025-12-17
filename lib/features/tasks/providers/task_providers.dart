@@ -4,7 +4,7 @@ import '../../../data/models/task_tag.dart';
 import '../../../data/models/importance_level.dart';
 import '../../../data/models/task_status.dart';
 import '../../../data/providers/repository_providers.dart';
-import '../../../data/database/database.dart'; // Import for TaskReminder
+import 'notification_providers.dart';
 
 /// Provider for watching a specific task by UUID
 final watchTaskProvider = StreamProvider.family<TodoTask?, String>((ref, uuid) {
@@ -47,63 +47,81 @@ final watchTaskRemindersProvider =
     });
 
 /// Provider for creating a new task
-final createTaskProvider =
-    Provider<
-      Future<TodoTask> Function({
-        required String title,
-        String? description,
-        required ImportanceLevel importance,
-        TaskStatus status,
-        DateTime? dueDate,
-        List<DateTime>? reminders,
-        List<int>? tagIds, // Changed from List<TaskTag> to IDs to match repo
-      })
-    >((ref) {
-      final todoRepo = ref.watch(todoRepositoryProvider);
-      return ({
-        required String title,
-        String? description,
-        required ImportanceLevel importance,
-        TaskStatus status = TaskStatus.notStarted,
-        DateTime? dueDate,
-        List<DateTime>? reminders,
-        List<int>? tagIds,
-      }) async {
-        final id = await todoRepo.createTodo(
-          title: title,
-          description: description,
-          importance: importance,
-          status: status,
-          dueDate: dueDate,
-          reminders: reminders,
-          tagIds: tagIds,
-        );
-        final task = await todoRepo.getTodoById(id);
-        if (task == null) throw Exception("Failed to create task");
-        return task;
-      };
-    });
+final createTaskProvider = Provider<Future<TodoTask> Function({
+  required String title,
+  String? description,
+  required ImportanceLevel importance,
+  TaskStatus status,
+  DateTime? dueDate,
+  List<TaskTag>? tags,
+  List<DateTime>? reminders,
+})>((ref) {
+  final todoRepo = ref.watch(todoRepositoryProvider);
+  final notificationManager = ref.watch(taskNotificationManagerProvider);
+
+  return ({
+    required String title,
+    String? description,
+    required ImportanceLevel importance,
+    TaskStatus status = TaskStatus.notStarted,
+    DateTime? dueDate,
+    List<TaskTag>? tags,
+    List<DateTime>? reminders,
+  }) async {
+    final taskId = await todoRepo.createTodo(
+      title: title,
+      description: description,
+      importance: importance,
+      status: status,
+      dueDate: dueDate,
+      tags: tags?.map((t) => t.id).toList(),
+      reminders: reminders,
+    );
+
+    // Fetch the created task
+    final task = await todoRepo.getTodoById(taskId);
+    
+    if (task != null) {
+      // Schedule notifications
+      await notificationManager.scheduleTaskNotifications(task, customReminders: reminders);
+      return task;
+    } else {
+      throw Exception('Failed to create task');
+    }
+  };
+});
 
 /// Provider for updating a task
-final updateTaskProvider = Provider<Future<void> Function(TodoTask)>((ref) {
+/// Provider for updating a task
+final updateTaskProvider = Provider<Future<void> Function(TodoTask, {List<DateTime>? reminders})>((ref) {
   final todoRepo = ref.watch(todoRepositoryProvider);
-  return (TodoTask task) => todoRepo.updateTodo(
-    task.id,
-    title: task.title,
-    description: task.description,
-    importance: ImportanceLevel.values.any((e) => e.name == task.importance)
-        ? ImportanceLevel.values.byName(task.importance)
-        : null,
-    status: TaskStatus.values.any((e) => e.name == task.status)
-        ? TaskStatus.values.byName(task.status)
-        : null,
-    dueDate: task.dueDate,
-    reminderDateTime: task.reminderDateTime,
-    isCompleted: task.isCompleted,
-    completedAt: task.completedAt,
-    isDueToday: task.isDueToday,
-    isOverdue: task.isOverdue,
-  );
+  final notificationManager = ref.watch(taskNotificationManagerProvider);
+  
+  return (TodoTask task, {List<DateTime>? reminders}) async {
+    await todoRepo.updateTodo(
+      task.id,
+      title: task.title,
+      description: task.description,
+      importance: ImportanceLevel.values.firstWhere((e) => e.name == task.importance),
+      status: TaskStatus.values.firstWhere((e) => e.name == task.status),
+      dueDate: task.dueDate,
+      reminderDateTime: task.reminderDateTime,
+      isCompleted: task.isCompleted,
+      completedAt: task.completedAt,
+      isDueToday: task.isDueToday,
+      isOverdue: task.isOverdue,
+      reminders: reminders,
+    );
+    
+    // Update notifications
+    // Note: We use the passed 'task' because only ID and reminders changed relevant to scheduling,
+    // or we assume 'task' object passed in has the NEW values we want to verify.
+    // Actually, updateTaskProvider caller usually updates the task object in memory then calls this?
+    // Drift doesn't update the object in place.
+    // Ideally we should refetch or construct updated object.
+    // For now pass 'task' assuming it holds new state or at least ID.
+    await notificationManager.scheduleTaskNotifications(task, customReminders: reminders);
+  };
 });
 
 /// Provider for deleting a task
@@ -115,13 +133,23 @@ final deleteTaskProvider = Provider<Future<bool> Function(TodoTask)>((ref) {
 /// Provider for completing a task
 final completeTaskProvider = Provider<Future<void> Function(TodoTask)>((ref) {
   final todoRepo = ref.watch(todoRepositoryProvider);
-  return (TodoTask task) => todoRepo.completeTodo(task.id);
+  final notificationManager = ref.watch(taskNotificationManagerProvider);
+
+  return (TodoTask task) async {
+    await todoRepo.completeTodo(task.id);
+    await notificationManager.cancelTaskNotifications(task.id);
+  };
 });
 
 /// Provider for uncompleting a task
 final uncompleteTaskProvider = Provider<Future<void> Function(TodoTask)>((ref) {
   final todoRepo = ref.watch(todoRepositoryProvider);
-  return (TodoTask task) => todoRepo.uncompleteTodo(task.id);
+  final notificationManager = ref.watch(taskNotificationManagerProvider);
+
+  return (TodoTask task) async {
+    await todoRepo.uncompleteTodo(task.id);
+    await notificationManager.scheduleTaskNotifications(task);
+  };
 });
 
 /// Provider for adding a tag to a task

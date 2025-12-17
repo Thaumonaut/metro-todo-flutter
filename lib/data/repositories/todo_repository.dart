@@ -23,6 +23,7 @@ class TodoRepository {
     DateTime? dueDate,
     List<DateTime>? reminders,
     List<int>? tagIds,
+    String taskType = 'standard',
   }) async {
     final now = DateTime.now();
     final isDueToday = _isDueToday(dueDate);
@@ -41,6 +42,7 @@ class TodoRepository {
       isCompleted: const Value(false),
       isDueToday: Value(isDueToday),
       isOverdue: Value(isOverdue),
+      taskType: Value(taskType),
     );
 
     final taskId = await _db.into(_db.todoTasks).insert(entry);
@@ -461,6 +463,7 @@ class TodoRepository {
     required int recurringPatternId,
     String? description,
     String? seriesId,
+    String taskType = 'standard',
   }) async {
     final series = seriesId ?? _uuid.v4();
 
@@ -478,6 +481,7 @@ class TodoRepository {
       isRecurringTemplate: const Value(true),
       recurringSeriesId: Value(series),
       isCompleted: const Value(false),
+      taskType: Value(taskType),
     );
 
     return await _db.into(_db.todoTasks).insert(entry);

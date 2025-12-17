@@ -37,6 +37,10 @@ class TodoTasks extends Table {
   BoolColumn get isRecurringException =>
       boolean().withDefault(const Constant(false))();
   BoolColumn get isSkipped => boolean().withDefault(const Constant(false))();
+
+  // Task type for special task handling
+  TextColumn get taskType =>
+      text().withDefault(const Constant('standard'))();
 }
 
 class TaskTags extends Table {
@@ -101,6 +105,142 @@ class TaskReminders extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// Special Task Types Tables
+
+class Medications extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get taskId =>
+      integer().references(TodoTasks, #id, onDelete: KeyAction.cascade)();
+
+  // Core medication info
+  TextColumn get medicationName => text()();
+  TextColumn get dosage => text()();
+
+  // Inventory tracking
+  RealColumn get currentQuantity => real()();
+  RealColumn get refillThreshold => real()();
+  RealColumn get quantityPerDose =>
+      real().withDefault(const Constant(1.0))();
+  BoolColumn get autoDecrementEnabled =>
+      boolean().withDefault(const Constant(true))();
+
+  // Medical info
+  TextColumn get prescribingDoctor => text().nullable()();
+  TextColumn get pharmacyInfo => text().nullable()();
+  TextColumn get prescriptionNumber => text().nullable()();
+  TextColumn get instructions => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class MedicationInventoryLog extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get medicationId =>
+      integer().references(Medications, #id, onDelete: KeyAction.cascade)();
+
+  RealColumn get previousQuantity => real()();
+  RealColumn get newQuantity => real()();
+  RealColumn get changeAmount => real()();
+  TextColumn get changeReason => text()();
+  IntColumn get relatedTaskCompletionId => integer().nullable()();
+
+  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+}
+
+class TaskTriggers extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get sourceTaskId =>
+      integer().references(TodoTasks, #id, onDelete: KeyAction.cascade)();
+
+  // Trigger configuration
+  TextColumn get triggerType => text()();
+  TextColumn get triggerCondition => text()();
+
+  // Template for task to create
+  TextColumn get targetTaskTitle => text()();
+  TextColumn get targetTaskDescription => text().nullable()();
+  TextColumn get targetTaskType =>
+      text().withDefault(const Constant('standard'))();
+  TextColumn get targetImportance => text()();
+
+  // Trigger state
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get lastTriggered => dateTime().nullable()();
+  IntColumn get createdTaskId => integer().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class Habits extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get taskId =>
+      integer().references(TodoTasks, #id, onDelete: KeyAction.cascade)();
+
+  IntColumn get currentStreak => integer().withDefault(const Constant(0))();
+  IntColumn get longestStreak => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastCompletedDate => dateTime().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class Bills extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get taskId =>
+      integer().references(TodoTasks, #id, onDelete: KeyAction.cascade)();
+
+  RealColumn get amount => real()();
+  TextColumn get currency => text().withDefault(const Constant('USD'))();
+  TextColumn get payee => text()();
+  TextColumn get accountNumber => text().nullable()();
+  TextColumn get paymentMethod => text().nullable()();
+
+  BoolColumn get isPaid => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get paidAt => dateTime().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class Exercises extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get taskId =>
+      integer().references(TodoTasks, #id, onDelete: KeyAction.cascade)();
+
+  IntColumn get sets => integer().nullable()();
+  IntColumn get reps => integer().nullable()();
+  IntColumn get duration => integer().nullable()();
+  TextColumn get workoutType => text().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class Chores extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get taskId =>
+      integer().references(TodoTasks, #id, onDelete: KeyAction.cascade)();
+
+  IntColumn get completionCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastCompletedAt => dateTime().nullable()();
+  TextColumn get cleaningProducts => text().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class DaysSince extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get taskId =>
+      integer().references(TodoTasks, #id, onDelete: KeyAction.cascade)();
+
+  TextColumn get behaviorDescription => text()();
+  DateTimeColumn get lastOccurrence => dateTime()();
+  IntColumn get targetDaysGoal => integer().nullable()();
+  IntColumn get longestStreak => integer().withDefault(const Constant(0))();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 @DriftDatabase(
   tables: [
     TodoTasks,
@@ -109,13 +249,21 @@ class TaskReminders extends Table {
     RecurringPatterns,
     RecurringCompletions,
     TaskReminders,
+    Medications,
+    MedicationInventoryLog,
+    TaskTriggers,
+    Habits,
+    Bills,
+    Exercises,
+    Chores,
+    DaysSince,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -125,22 +273,25 @@ class AppDatabase extends _$AppDatabase {
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
-          // We added the reminderDateTime column in TodoTasks in step 1, but user crashed.
-          // If they run this, they might have a DB v1.
-          // The previous code added 'reminderDateTime' to TodoTasks table definition
-          // but didn't run a migration. Now we are at v2.
-          // We should add the 'reminderDateTime' column to TodoTasks if it's missing (to fix the crash if we keep it)
-          // OR we remove it and strictly use TaskReminders.
-          // Given the user wants multiple reminders, distinct table is better.
-          // BUT, to avoid breaking any other code referencing 'reminderDateTime' on TodoTasks just yet,
-          // let's add the column properly to fix the "no such column" error if we keep the field.
-          // However, my plan is to switch to TaskReminders.
-          // Let's check if I should keep 'reminderDateTime' as a computed "next reminder" or "primary reminder".
-          // It's useful for sorting. Let's keep it and actually add it.
+          // Migration from v1 to v2
           await m.addColumn(todoTasks, todoTasks.reminderDateTime);
-
-          // Add the new table
           await m.createTable(taskReminders);
+        }
+
+        if (from < 3) {
+          // Migration from v2 to v3: Add special task types support
+          // Add taskType column to TodoTasks with default 'standard'
+          await m.addColumn(todoTasks, todoTasks.taskType);
+
+          // Create all special task type tables
+          await m.createTable(medications);
+          await m.createTable(medicationInventoryLog);
+          await m.createTable(taskTriggers);
+          await m.createTable(habits);
+          await m.createTable(bills);
+          await m.createTable(exercises);
+          await m.createTable(chores);
+          await m.createTable(daysSince);
         }
       },
     );
